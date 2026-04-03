@@ -1,0 +1,282 @@
+================================================================================
+  TITANBAY API — SETUP COMMANDS (learning reference)
+================================================================================
+  This file documents every command used to build and run this project,
+  in the order you would run them on a fresh machine.
+================================================================================
+
+
+--------------------------------------------------------------------------------
+  1. INITIALISE THE PROJECT
+--------------------------------------------------------------------------------
+
+# Create the project folder and enter it
+mkdir titanbay-api
+cd titanbay-api
+
+# Initialise a new Node.js project (creates package.json)
+npm init -y
+
+
+--------------------------------------------------------------------------------
+  2. INSTALL DEPENDENCIES
+--------------------------------------------------------------------------------
+
+# Production dependencies
+#   express         — HTTP framework
+#   @prisma/client  — generated DB client (used at runtime)
+#   zod             — schema validation + TS type inference
+#   dotenv          — loads .env file into process.env
+npm install express @prisma/client zod dotenv
+
+# Dev-only dependencies
+#   typescript              — TS compiler
+#   @types/express          — TS types for Express
+#   @types/node             — TS types for Node built-ins
+#   tsx                     — runs TS files directly in dev (no compile step)
+#   prisma                  — Prisma CLI (migrations, codegen)
+#   jest                    — test runner
+#   @types/jest             — TS types for Jest
+#   ts-jest                 — lets Jest understand TypeScript files
+#   supertest               — makes HTTP requests against an Express app in tests
+#   @types/supertest        — TS types for supertest
+#   eslint                  — linter
+#   @typescript-eslint/*    — ESLint rules for TypeScript
+#   prettier                — code formatter
+npm install -D typescript @types/express @types/node tsx prisma \
+  jest @types/jest ts-jest supertest @types/supertest \
+  eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin prettier
+
+
+--------------------------------------------------------------------------------
+  3. TYPESCRIPT SETUP
+--------------------------------------------------------------------------------
+
+# Generate a starter tsconfig.json (then edit it — see tsconfig.json in repo)
+npx tsc --init
+
+# Key settings to enable in tsconfig.json:
+#   "strict": true            — catches more bugs at compile time
+#   "outDir": "./dist"        — where compiled JS goes
+#   "rootDir": "./src"        — where your TS source lives
+#   "esModuleInterop": true   — cleaner default imports
+
+
+--------------------------------------------------------------------------------
+  4. PRISMA SETUP
+--------------------------------------------------------------------------------
+
+# Initialise Prisma — creates prisma/schema.prisma and .env
+npx prisma init --datasource-provider postgresql
+
+# After writing your schema (models, enums, relations) in prisma/schema.prisma:
+
+# Generate the Prisma Client from the schema
+# This creates node_modules/@prisma/client with type-safe query methods
+# Run this any time you change the schema
+npx prisma generate
+
+# Create and apply the first migration (dev only — also runs generate)
+# --name gives the migration a descriptive label
+npx prisma migrate dev --name init
+
+# In production (no prompts, just applies pending migrations):
+npx prisma migrate deploy
+
+# Open Prisma Studio — a browser GUI to browse/edit your DB data
+npx prisma studio
+
+# Seed the database (runs the file in prisma/seed.ts)
+npx prisma db seed
+# or directly:
+npx tsx prisma/seed.ts
+
+
+--------------------------------------------------------------------------------
+  5. DOCKER — POSTGRES DATABASE ONLY (for local dev/testing)
+--------------------------------------------------------------------------------
+
+# Start only the database container in the background (-d = detached)
+docker-compose up -d db
+
+# Stop the database container
+docker-compose stop db
+
+# Check running containers
+docker ps
+
+# View container logs (useful if Postgres won't start)
+docker logs titanbay-api-db-1
+
+# Open a psql shell inside the running Postgres container
+docker exec -it titanbay-api-db-1 psql -U postgres
+
+# Create the test database (run once after the container is up)
+docker exec titanbay-api-db-1 psql -U postgres -c "CREATE DATABASE titanbay_test;"
+
+# Apply migrations to the test database
+DATABASE_URL="postgresql://postgres:password@localhost:5432/titanbay_test" \
+  npx prisma migrate deploy
+
+# Destroy containers AND volumes (wipes all DB data — use to start fresh)
+docker-compose down -v
+
+
+--------------------------------------------------------------------------------
+  6. DOCKER — FULL STACK (app + database together)
+--------------------------------------------------------------------------------
+
+# Build the Docker image for the app
+docker-compose build
+
+# Start both the app and database containers
+docker-compose up
+
+# Start in the background
+docker-compose up -d
+
+# View logs from all containers
+docker-compose logs -f
+
+# Stop everything (keeps volumes/data)
+docker-compose down
+
+# Rebuild and restart (after code changes to the app)
+docker-compose up --build
+
+
+--------------------------------------------------------------------------------
+  7. RUNNING THE APP LOCALLY (without Docker)
+--------------------------------------------------------------------------------
+
+# Start the dev server — watches for file changes and restarts automatically
+npm run dev
+# This runs: tsx watch src/index.ts
+
+# Compile TypeScript to JavaScript (output goes to ./dist)
+npm run build
+# This runs: tsc
+
+# Start the compiled production build
+npm start
+# This runs: node dist/index.js
+
+# Check the API is running
+curl http://localhost:3000/health
+# Expected: {"status":"ok"}
+
+
+--------------------------------------------------------------------------------
+  8. RUNNING TESTS
+--------------------------------------------------------------------------------
+
+# Run all tests once (uses jest.config.js for config)
+npm test
+# This runs: jest --runInBand --forceExit
+#   --runInBand   = run test files sequentially (avoids DB race conditions)
+#   --forceExit   = exit after tests even if async handles are still open
+
+# Watch mode — reruns tests when files change (great during development)
+npm run test:watch
+
+
+--------------------------------------------------------------------------------
+  9. LINTING AND FORMATTING
+--------------------------------------------------------------------------------
+
+# Check for lint errors
+npm run lint
+# This runs: eslint src/ --ext .ts
+
+# Auto-format all source files with Prettier
+npm run format
+# This runs: prettier --write "src/**/*.ts" "tests/**/*.ts"
+
+# Check TypeScript types without emitting any files
+npx tsc --noEmit
+
+
+--------------------------------------------------------------------------------
+  10. ENVIRONMENT VARIABLES (.env)
+--------------------------------------------------------------------------------
+
+# Copy the example file to create your local .env
+cp .env.example .env
+
+# The .env file needs these variables:
+#
+#   DATABASE_URL      — connection string for the main (dev) database
+#   TEST_DATABASE_URL — connection string for the test database
+#   PORT              — port the Express server listens on (default 3000)
+#   NODE_ENV          — "development" | "production" | "test"
+#
+# Example values (matching the Docker Compose setup):
+#   DATABASE_URL="postgresql://postgres:password@localhost:5432/titanbay"
+#   TEST_DATABASE_URL="postgresql://postgres:password@localhost:5432/titanbay_test"
+#   PORT=3000
+#   NODE_ENV=development
+
+# Connection string format breakdown:
+#   postgresql://  <user> : <password> @ <host> : <port> / <database>
+#   postgresql://postgres:password@localhost:5432/titanbay
+
+
+--------------------------------------------------------------------------------
+  11. COMPLETE SETUP SEQUENCE (fresh clone on a new machine)
+--------------------------------------------------------------------------------
+
+# 1. Install dependencies
+npm install
+
+# 2. Copy env file and edit if needed
+cp .env.example .env
+
+# 3. Start the database container
+docker-compose up -d db
+
+# 4. Wait ~5 seconds for Postgres to be ready, then run migrations
+npx prisma migrate deploy
+
+# 5. Create and migrate the test database
+docker exec titanbay-api-db-1 psql -U postgres -c "CREATE DATABASE titanbay_test;"
+DATABASE_URL="postgresql://postgres:password@localhost:5432/titanbay_test" npx prisma migrate deploy
+
+# 6. Seed the dev database with sample data
+npm run db:seed
+
+# 7. Start the dev server
+npm run dev
+
+# 8. Run tests
+npm test
+
+
+================================================================================
+  QUICK REFERENCE — PRISMA COMMANDS
+================================================================================
+
+  npx prisma init                    Create schema.prisma and .env
+  npx prisma generate                Regenerate the Prisma Client (after schema changes)
+  npx prisma migrate dev --name X    Create + apply a new migration (dev)
+  npx prisma migrate deploy          Apply pending migrations (production/CI)
+  npx prisma migrate reset           Drop DB, reapply all migrations, re-seed (dev only)
+  npx prisma db seed                 Run the seed script
+  npx prisma studio                  Open the GUI data browser
+  npx prisma format                  Auto-format schema.prisma
+  npx prisma validate                Check schema.prisma for errors
+
+
+================================================================================
+  QUICK REFERENCE — DOCKER COMMANDS
+================================================================================
+
+  docker ps                          List running containers
+  docker ps -a                       List all containers (including stopped)
+  docker images                      List local images
+  docker-compose up -d db            Start just the DB in background
+  docker-compose up --build          Rebuild image and start all services
+  docker-compose down                Stop and remove containers (keep volumes)
+  docker-compose down -v             Stop and remove containers + volumes (wipes data)
+  docker logs <container-name>       View logs for a container
+  docker exec -it <name> psql -U postgres   Open psql shell in container
+================================================================================

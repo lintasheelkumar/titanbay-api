@@ -1,0 +1,815 @@
+================================================================================
+  TITANBAY API — FULL WALKTHROUGH
+  Everything that was built, and why, explained for someone who knows
+  TypeScript but is newer to Node.js, Express, Prisma, and Docker.
+================================================================================
+
+
+================================================================================
+  PART 1 — THE BIG PICTURE (what are we building and why)
+================================================================================
+
+The task was to build a REST API — a backend server that listens for HTTP
+requests and responds with JSON data. Think of it like a waiter at a
+restaurant: a client (like a browser or mobile app) places an order (HTTP
+request), the waiter (API) goes to the kitchen (database), and brings back
+the food (JSON response).
+
+The API manages three things:
+  - Funds       (private equity funds)
+  - Investors   (people/organisations that put money in)
+  - Investments (a specific investor putting money into a specific fund)
+
+The tech stack chosen:
+  - TypeScript   — you already know this, it's the language
+  - Node.js      — the runtime that executes TypeScript/JavaScript on the server
+  - Express      — the web framework (handles routing, middleware, HTTP)
+  - Prisma       — talks to the database using TypeScript-typed queries
+  - PostgreSQL   — the relational database that stores the data
+  - Zod          — validates incoming request data and generates TS types
+  - Docker       — packages and runs the app + database in isolated containers
+  - Jest         — the test framework
+
+
+================================================================================
+  PART 2 — NODE.JS (what it is and why it matters)
+================================================================================
+
+You know TypeScript runs in the browser. Node.js lets TypeScript/JavaScript
+run ON A SERVER — outside the browser — so it can do things like:
+  - Listen for incoming HTTP requests on a port (e.g. port 3000)
+  - Read/write files
+  - Connect to a database
+
+Node.js is the runtime underneath everything. When you run:
+  npm run dev
+...Node.js is what actually executes your code.
+
+npm (Node Package Manager) is the tool that comes with Node.js for installing
+third-party libraries (called "packages"). When you run:
+  npm install express
+...npm downloads Express from the internet into a folder called node_modules/
+and records it as a dependency in package.json.
+
+package.json is like the project's manifest — it lists:
+  - The project name and version
+  - All dependencies (libraries the app needs to run)
+  - All devDependencies (libraries only needed during development/testing)
+  - "scripts" — shortcuts for common commands (npm run dev, npm test, etc.)
+
+
+================================================================================
+  PART 3 — EXPRESS (the web framework)
+================================================================================
+
+Express is the most popular Node.js framework for building HTTP APIs.
+In C# terms, it's roughly equivalent to ASP.NET Core minimal APIs.
+
+Here is how a bare-bones Express server works:
+
+  import express from 'express';
+  const app = express();
+
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  app.listen(3000, () => {
+    console.log('Server running on port 3000');
+  });
+
+Breaking that down:
+  - express()              creates the application
+  - app.get('/health', …)  registers a route: when a GET request comes in
+                           for /health, run this function
+  - (req, res)             req = the incoming request (headers, body, params)
+                           res = the outgoing response (what you send back)
+  - res.json(...)          sends a JSON response
+  - app.listen(3000, …)    starts the server, listening on port 3000
+
+MIDDLEWARE
+----------
+Middleware is a function that runs on every request before it reaches your
+route handler. Express processes middleware in order, like a pipeline.
+
+Examples of middleware used in this project:
+  - express.json()        — parses the JSON body of incoming requests so
+                            req.body is a JavaScript object (not raw text)
+  - validateBody(schema)  — our custom Zod validation (runs before the handler)
+  - errorHandler          — catches any errors thrown in handlers
+
+The middleware pipeline looks like this:
+  Request → express.json() → validateBody() → routeHandler → errorHandler → Response
+
+
+================================================================================
+  PART 4 — PROJECT STRUCTURE EXPLAINED
+================================================================================
+
+titanbay-api/
+├── src/
+│   ├── index.ts            THE ENTRY POINT
+│   │                       Starts the server. Connects to the database.
+│   │                       This is the file Node.js runs first.
+│   │
+│   ├── app.ts              THE EXPRESS APP (separate from the server)
+│   │                       Creates and configures the Express app.
+│   │                       Kept separate from index.ts so tests can import
+│   │                       the app without starting a real server.
+│   │
+│   ├── routes/             ROUTE DEFINITIONS
+│   │   ├── index.ts        Combines all routes into one router
+│   │   ├── fund.routes.ts  Maps URL paths to controller functions
+│   │   └── ...             e.g. GET /funds → fundController.listFunds
+│   │
+│   ├── controllers/        HTTP LAYER
+│   │                       One file per resource. These functions:
+│   │                         1. Read data from req (params, body)
+│   │                         2. Call the service
+│   │                         3. Send the response (res.json / res.status)
+│   │                       They know nothing about the database.
+│   │
+│   ├── services/           BUSINESS LOGIC LAYER
+│   │                       One file per resource. These functions:
+│   │                         1. Apply business rules (does this fund exist?)
+│   │                         2. Query the database via Prisma
+│   │                         3. Return plain data (not HTTP responses)
+│   │                       They know nothing about HTTP.
+│   │
+│   ├── schemas/            ZOD VALIDATION SCHEMAS
+│   │                       Define the shape and rules of request data.
+│   │                       Also generate TypeScript types automatically.
+│   │
+│   ├── middleware/         SHARED MIDDLEWARE
+│   │   ├── validate.ts     Generic middleware that runs a Zod schema
+│   │   ├── errorHandler.ts Catches errors thrown anywhere in the app
+│   │   └── notFound.ts     Returns 404 for unknown routes
+│   │
+│   ├── lib/
+│   │   └── prisma.ts       PRISMA SINGLETON
+│   │                       Creates one shared PrismaClient instance.
+│   │                       Important: you only ever want one connection pool.
+│   │
+│   └── types/
+│       └── index.ts        SHARED TYPES
+│                           AppError class, ErrorCode type, etc.
+│
+├── prisma/
+│   ├── schema.prisma       DATABASE SCHEMA
+│   │                       Defines your tables, columns, types, relations.
+│   │                       Prisma reads this to generate the client and
+│   │                       create SQL migrations.
+│   ├── migrations/         MIGRATION HISTORY
+│   │                       Each migration is a timestamped folder containing
+│   │                       the SQL that was applied to the database.
+│   │                       Never edit these manually.
+│   └── seed.ts             SEED SCRIPT
+│                           Inserts sample data into the database.
+│                           Useful for development and demos.
+│
+├── tests/
+│   ├── jest.env.ts         Loads .env before tests run
+│   ├── setup.ts            Shared test helpers (Prisma client, resetDb)
+│   ├── funds.test.ts
+│   ├── investors.test.ts
+│   └── investments.test.ts
+│
+├── docker-compose.yml      DEFINES WHAT DOCKER RUNS
+├── Dockerfile              HOW TO BUILD THE APP'S DOCKER IMAGE
+├── .env                    YOUR LOCAL ENVIRONMENT VARIABLES (not committed to git)
+├── .env.example            TEMPLATE showing what variables are needed
+├── package.json            PROJECT MANIFEST + SCRIPTS
+└── tsconfig.json           TYPESCRIPT COMPILER CONFIG
+
+
+WHY SEPARATE CONTROLLERS AND SERVICES?
+---------------------------------------
+In C# ASP.NET you often have Controller + Service layers too. Same idea here.
+
+Controller = thin. Only HTTP concerns.
+  - Parse the request
+  - Call the service
+  - Send the response
+  - Forward errors to Express error handler with next(err)
+
+Service = the real logic.
+  - Does the fund exist? Throw a 404 error if not.
+  - Is the email unique? Throw a 409 if not.
+  - Talk to the database.
+  - Return data.
+
+This separation means:
+  - Services are testable without HTTP
+  - If you later swap Express for another framework, services don't change
+  - Code is easier to read — each file has one job
+
+
+================================================================================
+  PART 5 — PRISMA (the database ORM)
+================================================================================
+
+An ORM (Object-Relational Mapper) lets you query a database using your
+programming language instead of raw SQL.
+
+In C# terms: Prisma = Entity Framework. PrismaClient = DbContext.
+
+THE SCHEMA (prisma/schema.prisma)
+-----------------------------------
+This file is the single source of truth for your database structure.
+You define your tables as "models":
+
+  model Fund {
+    id              String     @id @default(uuid()) @db.Uuid
+    name            String
+    vintage_year    Int
+    target_size_usd Decimal    @db.Decimal(18, 2)
+    status          FundStatus @default(Fundraising)
+    created_at      DateTime   @default(now())
+    investments     Investment[]
+
+    @@map("funds")
+  }
+
+Reading that:
+  - model Fund        — creates a "funds" table (@@map renames it in the DB)
+  - String            — text column (VARCHAR in SQL)
+  - Int               — integer column
+  - Decimal(18,2)     — exact decimal (NEVER use Float for money — floating
+                        point can't represent some numbers exactly, e.g.
+                        0.1 + 0.2 ≠ 0.3 in floating point)
+  - @id               — this is the primary key
+  - @default(uuid())  — auto-generate a UUID when a record is created
+  - @db.Uuid          — store it as a native UUID type in Postgres
+  - @default(now())   — auto-set to current timestamp on creation
+  - Investment[]      — this fund has many investments (1-to-many relation)
+  - @@map("funds")    — the actual table name in the database is "funds"
+
+ENUMS
+-------
+Enums restrict a column to a fixed set of values — enforced at the DB level:
+
+  enum FundStatus {
+    Fundraising
+    Investing
+    Closed
+  }
+
+  enum InvestorType {
+    Individual
+    Institution
+    Family_Office @map("Family Office")  ← stored as "Family Office" in DB
+  }
+
+RELATIONS
+-----------
+  model Investment {
+    investor_id String   @db.Uuid
+    fund_id     String   @db.Uuid
+    investor    Investor @relation(fields: [investor_id], references: [id])
+    fund        Fund     @relation(fields: [fund_id], references: [id])
+  }
+
+This says: investor_id is a foreign key pointing to the id column of Investor.
+Prisma enforces referential integrity — you can't create an Investment with
+an investor_id that doesn't exist in the investors table.
+
+HOW PRISMA GENERATES THE CLIENT
+----------------------------------
+After you write the schema, you run:
+  npx prisma generate
+
+Prisma reads the schema and generates a TypeScript client in node_modules.
+This client has fully typed methods for every model:
+
+  // TypeScript knows exactly what columns exist and what types they are
+  const fund = await prisma.fund.findUnique({ where: { id: '...' } });
+  // fund is: { id: string, name: string, vintage_year: number, ... } | null
+
+MIGRATIONS
+------------
+A migration is a versioned SQL script that changes the database structure.
+Each time you change your schema and run:
+  npx prisma migrate dev --name <description>
+
+Prisma:
+  1. Compares your schema to the current database state
+  2. Generates the SQL needed to get the DB in sync
+  3. Saves that SQL in prisma/migrations/<timestamp>_<name>/migration.sql
+  4. Applies it to your database
+  5. Re-generates the Prisma Client
+
+The migration SQL for our schema looked like:
+  CREATE TABLE "funds" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "name" TEXT NOT NULL,
+    "vintage_year" INTEGER NOT NULL,
+    "target_size_usd" DECIMAL(18,2) NOT NULL,
+    "status" "FundStatus" NOT NULL DEFAULT 'Fundraising',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "funds_pkey" PRIMARY KEY ("id")
+  );
+  -- (and similar for investors, investments)
+
+You never write SQL manually. Prisma handles it.
+
+In production you run:
+  npx prisma migrate deploy
+This applies any pending migrations without prompting.
+
+QUERYING THE DATABASE
+-----------------------
+The Prisma Client methods map to SQL operations:
+
+  prisma.fund.findMany()                   → SELECT * FROM funds
+  prisma.fund.findUnique({ where: {id} })  → SELECT * FROM funds WHERE id = ?
+  prisma.fund.create({ data: {...} })      → INSERT INTO funds ...
+  prisma.fund.update({ where: {id}, data })→ UPDATE funds SET ... WHERE id = ?
+  prisma.fund.deleteMany()                 → DELETE FROM funds
+
+DECIMAL SERIALISATION (important gotcha)
+------------------------------------------
+Prisma returns monetary values as Decimal objects, not plain JS numbers.
+If you send a Decimal object directly in a JSON response, it looks wrong.
+So in the services we call .toNumber() to convert it:
+
+  target_size_usd: fund.target_size_usd.toNumber()
+
+The spec shows monetary values as numbers in JSON (e.g. 250000000.00),
+so .toNumber() is correct here. For very large numbers you'd use .toString()
+to avoid floating point issues, but at this scale .toNumber() is fine.
+
+DATE SERIALISATION
+--------------------
+PostgreSQL @db.Date returns a JavaScript Date object with midnight UTC time.
+The spec wants "2024-03-15" (date only, no time part). So:
+
+  investment_date: investment.investment_date.toISOString().split('T')[0]
+
+.toISOString() gives "2024-03-15T00:00:00.000Z", .split('T')[0] gives "2024-03-15".
+
+
+================================================================================
+  PART 6 — ZOD (validation + TypeScript types in one)
+================================================================================
+
+Zod is a schema validation library. In C# terms it's similar to FluentValidation,
+but with one superpower: it also generates TypeScript types.
+
+WITHOUT ZOD you'd need to:
+  1. Write a TypeScript type/interface for your input data
+  2. Write separate validation logic
+
+WITH ZOD you do both at once:
+
+  const createFundSchema = z.object({
+    name: z.string().min(1).max(255),
+    vintage_year: z.number().int().min(1900).max(currentYear + 5),
+    target_size_usd: z.number().positive(),
+    status: z.enum(['Fundraising', 'Investing', 'Closed']).optional(),
+  });
+
+  // Derive the TypeScript type from the schema — no duplication
+  type CreateFundInput = z.infer<typeof createFundSchema>;
+  // Same as writing: type CreateFundInput = { name: string; vintage_year: number; ... }
+
+HOW VALIDATION MIDDLEWARE WORKS
+----------------------------------
+In validate.ts we created a generic middleware factory:
+
+  export function validateBody(schema: ZodSchema) {
+    return (req, res, next) => {
+      const result = schema.safeParse(req.body);
+      if (!result.success) {
+        next(new AppError(400, 'VALIDATION_ERROR', 'Validation failed', details));
+        return;
+      }
+      req.body = result.data;  // replace body with the cleaned/typed data
+      next();                  // continue to the route handler
+    };
+  }
+
+In the route file we attach it before the controller:
+  router.post('/', validateBody(createFundSchema), fundController.createFund);
+
+So the request pipeline is:
+  POST /funds
+    → express.json()           parses raw body text into req.body object
+    → validateBody(schema)     validates and types req.body
+    → fundController.createFund  handler (body is already validated here)
+
+If validation fails, we call next(error) which skips the handler entirely
+and goes straight to the error handler middleware.
+
+
+================================================================================
+  PART 7 — ERROR HANDLING
+================================================================================
+
+HOW EXPRESS ERROR HANDLING WORKS
+-----------------------------------
+Express has a special 4-argument middleware signature for error handling:
+  (err, req, res, next) => { ... }
+
+When ANY route handler calls next(error), Express skips all remaining
+regular middleware and jumps to the next error-handling middleware.
+
+We throw errors from services as AppError objects (defined in src/types/index.ts):
+
+  export class AppError extends Error {
+    constructor(
+      public readonly statusCode: number,  // 404, 409, etc.
+      public readonly code: ErrorCode,     // 'NOT_FOUND', 'CONFLICT', etc.
+      message: string,
+      public readonly details?: ...
+    ) { ... }
+  }
+
+In controllers, we catch errors and forward to Express:
+  try {
+    const fund = await fundService.findFundById(req.params.id);
+    res.json(fund);
+  } catch (err) {
+    next(err);  // ← sends the error to errorHandler middleware
+  }
+
+In errorHandler.ts we check what kind of error it is and respond:
+  if (err instanceof AppError) → use err.statusCode and err.code
+  if Prisma P2002 error        → 409 Conflict (unique constraint violated)
+  if Prisma P2025 error        → 404 Not Found
+  if SyntaxError with 'body'   → 400 (malformed JSON in request body)
+  otherwise                    → 500 Internal Server Error
+
+CONSISTENT ERROR FORMAT
+-------------------------
+All errors return the same JSON shape — important for API consumers:
+
+  {
+    "error": {
+      "code": "NOT_FOUND",
+      "message": "Fund with id '...' not found",
+      "details": [...]  ← only on validation errors, shows which fields failed
+    }
+  }
+
+
+================================================================================
+  PART 8 — DOCKER (containers explained from scratch)
+================================================================================
+
+WHY DOCKER?
+------------
+Without Docker, every developer needs to install PostgreSQL locally,
+configure it the same way, use the same version, etc. Docker solves this
+by packaging everything into a "container" — an isolated, reproducible
+environment that runs the same on every machine.
+
+Think of a container like a very lightweight virtual machine. It runs in
+isolation from your OS but shares the OS kernel (so it starts in seconds,
+not minutes like a VM).
+
+KEY CONCEPTS
+-------------
+Image:     A blueprint for a container. Like a class definition.
+           e.g. "postgres:16-alpine" is the official Postgres 16 image.
+
+Container: A running instance of an image. Like an object created from a class.
+           You can run many containers from the same image.
+
+Volume:    Persistent storage attached to a container. Without a volume,
+           all database data would be lost when the container stops.
+
+Port mapping: Containers are isolated — they can't be reached from your
+           machine by default. Port mapping connects a container port to
+           a port on your machine:
+           "5432:5432" means "your machine's port 5432 → container's port 5432"
+
+DOCKERFILE (how to build the app's image)
+-------------------------------------------
+A Dockerfile is a recipe for building an image of the application itself.
+We used a multi-stage build to keep the final image small:
+
+  # Stage 1: BUILD
+  FROM node:20-alpine AS builder
+  WORKDIR /app
+  COPY package*.json ./
+  RUN npm ci                    ← install ALL dependencies (including dev)
+  COPY src ./src
+  RUN npm run build             ← compile TypeScript → JavaScript in /dist
+
+  # Stage 2: PRODUCTION IMAGE
+  FROM node:20-alpine AS production
+  WORKDIR /app
+  COPY package*.json ./
+  RUN npm ci --omit=dev         ← install ONLY production dependencies
+  COPY --from=builder /app/dist ./dist   ← copy compiled JS from stage 1
+  CMD ["node", "dist/index.js"] ← start the app
+
+Why two stages?
+  - Stage 1 needs TypeScript, tsx, eslint etc. (dev dependencies) to compile
+  - The final image doesn't need them — removing them makes the image smaller
+    and reduces the attack surface in production
+
+DOCKER-COMPOSE (orchestrating multiple containers)
+----------------------------------------------------
+Running the app needs TWO things: the API server and the database.
+docker-compose.yml defines both and how they connect:
+
+  services:
+    app:                         ← our Express API
+      build: .                   ← build from the Dockerfile in this folder
+      ports:
+        - '3000:3000'            ← expose port 3000 to your machine
+      environment:
+        DATABASE_URL: postgresql://postgres:password@db:5432/titanbay
+        ↑ Note: hostname is "db" not "localhost" — containers talk to each
+          other by service name, not localhost
+      depends_on:
+        db:
+          condition: service_healthy  ← don't start app until DB is ready
+
+    db:                          ← the PostgreSQL database
+      image: postgres:16-alpine  ← use the official Postgres image (pre-built)
+      ports:
+        - '5432:5432'
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: password
+        POSTGRES_DB: titanbay
+      volumes:
+        - postgres_data:/var/lib/postgresql/data  ← persist data between restarts
+      healthcheck:
+        test: ['CMD-SHELL', 'pg_isready -U postgres']
+        ← Postgres runs a startup check. "healthy" means it's accepting connections.
+
+WHAT HAPPENED WHEN WE RAN docker-compose up -d db
+----------------------------------------------------
+1. Docker read docker-compose.yml
+2. Saw "db" service uses image "postgres:16-alpine"
+3. Pulled that image from Docker Hub (the internet) if not already cached
+4. Created a container from that image
+5. Set the environment variables (POSTGRES_USER, POSTGRES_PASSWORD etc.)
+6. Created a volume called "postgres_data" and mounted it
+7. Mapped port 5432 on your machine to port 5432 in the container
+8. Started Postgres inside the container
+9. Postgres is now reachable at localhost:5432 on your machine
+
+
+================================================================================
+  PART 9 — THE FULL REQUEST LIFECYCLE (end to end)
+================================================================================
+
+Let's trace what happens when someone sends:
+  POST /funds
+  Content-Type: application/json
+  { "name": "Alpha Fund", "vintage_year": 2024, "target_size_usd": 100000000 }
+
+1. REQUEST ARRIVES AT NODE.JS
+   Node.js receives the TCP connection on port 3000. Express reads the
+   HTTP method (POST) and path (/funds).
+
+2. express.json() MIDDLEWARE
+   Parses the raw request body text into a JavaScript object:
+   req.body = { name: "Alpha Fund", vintage_year: 2024, target_size_usd: 100000000 }
+
+3. validateBody(createFundSchema) MIDDLEWARE
+   Runs the Zod schema against req.body:
+   - "name" is a string with at least 1 char ✓
+   - "vintage_year" is an integer between 1900 and currentYear+5 ✓
+   - "target_size_usd" is a positive number ✓
+   - "status" is optional — defaults will be applied in the DB ✓
+   Validation passed → call next() → continue to route handler
+
+4. fundController.createFund HANDLER
+   - Calls fundService.createFund(req.body)
+   - Waits for the promise to resolve
+
+5. fundService.createFund SERVICE
+   - Calls prisma.fund.create({ data: { ... } })
+   - Prisma generates and executes:
+       INSERT INTO funds (id, name, vintage_year, target_size_usd, status, created_at)
+       VALUES (gen_random_uuid(), 'Alpha Fund', 2024, 100000000, 'Fundraising', NOW())
+       RETURNING *;
+   - Returns the created fund object
+   - Service serialises it (converts Decimal to number, formats dates)
+   - Returns plain JS object to the controller
+
+6. CONTROLLER SENDS RESPONSE
+   res.status(201).json(fund)
+   Sends HTTP 201 Created with the JSON body:
+   {
+     "id": "a1b2c3d4-...",
+     "name": "Alpha Fund",
+     "vintage_year": 2024,
+     "target_size_usd": 100000000,
+     "status": "Fundraising",
+     "created_at": "2024-03-15T10:00:00.000Z"
+   }
+
+IF SOMETHING WENT WRONG (e.g. invalid data)
+  - Zod validation fails in step 3
+  - Middleware calls next(new AppError(400, 'VALIDATION_ERROR', ...))
+  - Express skips steps 4-6 and jumps to errorHandler middleware
+  - errorHandler formats the error as JSON and sends 400 response
+
+
+================================================================================
+  PART 10 — TESTING (Jest + Supertest)
+================================================================================
+
+WHY INTEGRATION TESTS (not unit tests)?
+-----------------------------------------
+We could mock the database and write unit tests for each service function.
+BUT mocked tests can lie — they only test that your code calls the right
+Prisma methods, not that the SQL actually works. Real bugs hide there.
+
+Instead we write integration tests: the test makes real HTTP requests to
+the Express app, which queries a real (test) database. This catches:
+  - Database schema errors
+  - Prisma query mistakes
+  - Middleware not being applied
+  - Serialisation bugs
+
+We use a SEPARATE test database (titanbay_test) so test data doesn't
+pollute the dev database.
+
+JEST
+------
+Jest is the test runner. It finds files matching **/*.test.ts, runs them,
+and reports pass/fail. Key concepts:
+
+  describe('group name', () => { ... })   — groups related tests
+  it('test name', async () => { ... })    — a single test
+  expect(value).toBe(expected)           — assertion: value must equal expected
+  expect(value).toEqual(expected)        — deep equality (for objects/arrays)
+  expect(value).toBeDefined()            — value is not undefined
+  expect(value).toHaveLength(n)          — array has n elements
+  beforeAll(async () => { ... })         — runs once before all tests in file
+  beforeEach(async () => { ... })        — runs before each test
+  afterAll(async () => { ... })          — runs once after all tests (cleanup)
+
+SUPERTEST
+-----------
+Supertest lets you make HTTP requests to an Express app without starting
+a real server — it connects directly to the app object:
+
+  import request from 'supertest';
+  import app from '../src/app';
+
+  const res = await request(app)
+    .post('/funds')
+    .send({ name: 'Test', vintage_year: 2024, target_size_usd: 1000000 });
+
+  expect(res.status).toBe(201);
+  expect(res.body.name).toBe('Test');
+
+The test database connection:
+  - tests/jest.env.ts overrides DATABASE_URL with TEST_DATABASE_URL
+  - This means Prisma in the app also uses the test DB during tests
+  - tests/setup.ts provides resetDb() which deletes all test data between
+    tests so each test starts with a clean slate
+
+RUNNING TESTS
+--------------
+  npm test
+  → jest --runInBand --forceExit
+
+  --runInBand:  run test files one at a time (not in parallel)
+                Important! If tests run in parallel they'd interfere with
+                each other in the shared test database.
+
+  --forceExit:  force Jest to exit after all tests
+                Without this, the open database connection keeps Jest alive.
+
+
+================================================================================
+  PART 11 — ENVIRONMENT VARIABLES (.env files)
+================================================================================
+
+Environment variables are configuration values that live outside your code.
+You don't hard-code database passwords in your source code — that would be
+a security risk (they'd end up on GitHub). Instead you use env vars.
+
+The dotenv library reads a .env file and loads the values into process.env:
+  import 'dotenv/config';
+  console.log(process.env.DATABASE_URL);  // "postgresql://..."
+
+.env             — your real local config (NOT committed to git)
+.env.example     — template showing what variables exist (IS committed to git)
+
+The .gitignore file (standard in every Node project) lists files git should
+ignore. .env is always in there.
+
+DATABASE_URL format:
+  postgresql://username:password@host:port/database_name
+
+  postgresql://postgres:password@localhost:5432/titanbay
+               ↑user    ↑pass    ↑host    ↑port ↑db name
+
+
+================================================================================
+  PART 12 — THE ORDER THINGS WERE BUILT
+================================================================================
+
+1. Created folder structure (mkdir for src, prisma, tests etc.)
+
+2. Wrote package.json — listed all dependencies before installing them
+
+3. Ran npm install — downloaded all packages into node_modules/
+
+4. Wrote tsconfig.json — configured TypeScript strict mode
+
+5. Wrote .eslintrc.json and .prettierrc — code quality tools config
+
+6. Wrote docker-compose.yml — defined the Postgres container config
+
+7. Wrote Dockerfile — defined how to build the app container
+
+8. Wrote prisma/schema.prisma — defined the database tables and relations
+
+9. Ran: docker-compose up -d db — started Postgres in Docker
+
+10. Ran: npx prisma generate — generated the TypeScript Prisma Client
+
+11. Ran: npx prisma migrate dev --name init — created and ran the SQL migrations
+    (this created the actual tables in the database)
+
+12. Wrote the shared infrastructure:
+    - src/lib/prisma.ts      (singleton Prisma Client)
+    - src/types/index.ts     (AppError class, ErrorCode type)
+    - src/middleware/validate.ts    (Zod validation middleware)
+    - src/middleware/errorHandler.ts (global error handler)
+    - src/middleware/notFound.ts    (404 handler)
+
+13. Wrote Zod schemas (src/schemas/) — validation rules for each resource
+
+14. Wrote services (src/services/) — database queries + business logic
+
+15. Wrote controllers (src/controllers/) — HTTP request/response handling
+
+16. Wrote routes (src/routes/) — maps URL paths to controller functions
+
+17. Wrote src/app.ts — assembled Express app with all routes and middleware
+
+18. Wrote src/index.ts — entry point that starts the server
+
+19. Verified TypeScript compiled with no errors: npx tsc --noEmit
+
+20. Created the test database:
+    docker exec titanbay-api-db-1 psql -U postgres -c "CREATE DATABASE titanbay_test;"
+    DATABASE_URL="...titanbay_test" npx prisma migrate deploy
+
+21. Wrote tests (tests/*.test.ts) — integration tests for all 8 endpoints
+
+22. Fixed the test database config (jest.env.ts overrides DATABASE_URL)
+
+23. Ran npm test — all 32 tests passed
+
+24. Seeded the dev database with sample data: npm run db:seed
+
+25. Wrote seed script (prisma/seed.ts) — sample funds, investors, investments
+
+
+================================================================================
+  PART 13 — THINGS WORTH MENTIONING IN AN INTERVIEW
+================================================================================
+
+1. WHY DECIMAL FOR MONEY, NOT FLOAT
+   JavaScript (and most languages) use IEEE 754 floating point for numbers.
+   Floating point can't represent some decimal fractions exactly:
+     0.1 + 0.2 === 0.30000000000000004  // not 0.3!
+   For financial data this is unacceptable. PostgreSQL NUMERIC(18,2) is
+   exact. Prisma wraps it in a Decimal object. Always use exact types for money.
+
+2. WHY UUID PRIMARY KEYS, NOT AUTO-INCREMENT INTEGERS
+   - Security: with integers, an attacker can guess resource IDs (1, 2, 3...)
+     and enumerate all records. UUIDs are unpredictable.
+   - Spec requirement: the API spec specified UUIDs.
+   - Postgres-native: stored as a UUID type, not as a string.
+
+3. WHY ID IN BODY FOR PUT /funds (NOT PUT /funds/:id)
+   The spec says PUT /funds with id in the body. This is unconventional —
+   REST convention puts the id in the URL path (PUT /funds/:id). We followed
+   the spec but documented this decision in the README. In an interview:
+   "I noticed this was unusual and documented it. In a real system I'd raise
+   this with the team before building."
+
+4. bypass_validation IS IGNORED BY DESIGN
+   The transaction spec includes a bypass_validation flag. We reject it.
+   Skipping server-side validation based on a client-supplied flag is a
+   security vulnerability — a malicious client could send invalid or
+   dangerous data and bypass all your checks. This is always the server's
+   responsibility, not the client's.
+
+5. SEPARATE TEST DATABASE
+   Tests run against titanbay_test, not titanbay. This means:
+   - Tests can freely delete/insert data without affecting dev data
+   - Tests are isolated and repeatable
+   - The app's real database is never touched by automated tests
+
+6. LAYERED ARCHITECTURE KEEPS THINGS TESTABLE
+   Because services have no HTTP code and controllers have no DB code,
+   you could test services with a mock database, or test controllers with
+   mock services. We chose integration tests here, but the architecture
+   supports either approach.
+
+================================================================================
