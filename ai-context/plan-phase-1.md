@@ -2,7 +2,6 @@
 
 ## Context
 
-**Role**: Senior Software Engineer (full-stack, TypeScript)
 **Task**: Build a RESTful API for managing private market funds, investors, and investments
 **API spec**: https://storage.googleapis.com/interview-api-doc-funds.wearebusy.engineering/index.html
 **Key signal from job spec**: They use TypeScript + Vue, value scalable architecture, Docker/containerisation, GCP, clean code, mentorship-quality readability

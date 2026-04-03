@@ -19,12 +19,12 @@ import { InvestorService } from '../services/investor.service.js';
 import { InvestmentService } from '../services/investment.service.js';
 
 // Decorators
-import { CachingFundService } from '../decorators/caching-fund.service.js';
-import { LoggingFundService } from '../decorators/logging-fund.service.js';
-import { CachingInvestorService } from '../decorators/caching-investor.service.js';
-import { LoggingInvestorService } from '../decorators/logging-investor.service.js';
-import { CachingInvestmentService } from '../decorators/caching-investment.service.js';
-import { LoggingInvestmentService } from '../decorators/logging-investment.service.js';
+import { CachingFundService } from '../services/decorators/caching-fund.service.js';
+import { LoggingFundService } from '../services/decorators/logging-fund.service.js';
+import { CachingInvestorService } from '../services/decorators/caching-investor.service.js';
+import { LoggingInvestorService } from '../services/decorators/logging-investor.service.js';
+import { CachingInvestmentService } from '../services/decorators/caching-investment.service.js';
+import { LoggingInvestmentService } from '../services/decorators/logging-investment.service.js';
 
 // Controllers
 import { FundController } from '../api/controllers/fund.controller.js';
