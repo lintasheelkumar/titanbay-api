@@ -1,10 +1,11 @@
-import { IInvestmentService } from '../services/interfaces/investment.service.interface.js';
-import { ICacheService } from '../lib/cache.js';
-import { InvestmentResponseDto } from '../api/dtos/investment.dto.js';
-import { PaginatedResponse, PaginationParams } from '../lib/pagination.js';
-import { Result } from '../lib/result.js';
-import { CacheKeys } from '../constants/cache.js';
-import { CreateInvestmentInput } from '../api/schemas/investment.schema.js';
+import { InvestmentResponseDto } from "../../api/dtos/investment.dto";
+import { CreateInvestmentInput } from "../../api/schemas/investment.schema";
+import { CacheKeys } from "../../constants";
+import { ICacheService } from "../../lib/cache";
+import { PaginatedResponse, PaginationParams } from "../../lib/pagination";
+import { Result } from "../../lib/result";
+import { IInvestmentService } from "../interfaces/investment.service.interface";
+
 
 export class CachingInvestmentService implements IInvestmentService {
   constructor(

@@ -1,10 +1,11 @@
-import { IInvestorService } from '../services/interfaces/investor.service.interface.js';
-import { ILogger } from '../lib/logger.js';
-import { InvestorResponseDto } from '../api/dtos/investor.dto.js';
-import { PaginatedResponse, PaginationParams } from '../lib/pagination.js';
-import { Result } from '../lib/result.js';
-import { LOG_MESSAGES } from '../constants/log-messages.js';
-import { CreateInvestorInput } from '../api/schemas/investor.schema.js';
+import { InvestorResponseDto } from "../../api/dtos/investor.dto";
+import { CreateInvestorInput } from "../../api/schemas/investor.schema";
+import { LOG_MESSAGES } from "../../constants";
+import { ILogger } from "../../lib/logger";
+import { PaginatedResponse, PaginationParams } from "../../lib/pagination";
+import { Result } from "../../lib/result";
+import { IInvestorService } from "../interfaces/investor.service.interface";
+
 
 export class LoggingInvestorService implements IInvestorService {
   constructor(

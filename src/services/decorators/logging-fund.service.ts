@@ -1,10 +1,10 @@
-import { IFundService } from '../services/interfaces/fund.service.interface.js';
-import { ILogger } from '../lib/logger.js';
-import { FundResponseDto } from '../api/dtos/fund.dto.js';
-import { PaginatedResponse, PaginationParams } from '../lib/pagination.js';
-import { Result } from '../lib/result.js';
-import { LOG_MESSAGES } from '../constants/log-messages.js';
-import { CreateFundInput, UpdateFundInput } from '../api/schemas/fund.schema.js';
+import { FundResponseDto } from "../../api/dtos/fund.dto";
+import { CreateFundInput, UpdateFundInput } from "../../api/schemas/fund.schema";
+import { LOG_MESSAGES } from "../../constants";
+import { ILogger } from "../../lib/logger";
+import { PaginatedResponse, PaginationParams } from "../../lib/pagination";
+import { Result } from "../../lib/result";
+import { IFundService } from "../interfaces/fund.service.interface";
 
 const SLOW_QUERY_MS = 200;
 
