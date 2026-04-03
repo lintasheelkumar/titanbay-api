@@ -1,13 +1,13 @@
 import { injectable, inject } from 'tsyringe';
 import { IInvestmentService } from './interfaces/investment.service.interface.js';
-import { IInvestmentRepository } from '../repositories/interfaces/investment.repository.interface.js';
-import { IFundRepository } from '../repositories/interfaces/fund.repository.interface.js';
-import { IInvestorRepository } from '../repositories/interfaces/investor.repository.interface.js';
+import { IInvestmentRepository } from '../database/repositories/interfaces/IInvestmentRepository.js';
+import { IFundRepository } from '../database/repositories/interfaces/IFundRepository.js';
+import { IInvestorRepository } from '../database/repositories/interfaces/IInvestorRepository.js';
 import {
   InvestmentResponseDto,
   toInvestmentResponse,
   toInvestmentResponseList,
-} from '../dtos/investment.dto.js';
+} from '../api/dtos/investment.dto.js';
 import { buildPaginatedResponse, PaginatedResponse, PaginationParams } from '../lib/pagination.js';
 import { Result } from '../lib/result.js';
 import {
@@ -17,7 +17,7 @@ import {
   InfrastructureError,
 } from '../errors/domain-errors.js';
 import { TOKENS } from '../constants/tokens.js';
-import { CreateInvestmentInput } from '../schemas/investment.schema.js';
+import { CreateInvestmentInput } from '../api/schemas/investment.schema.js';
 
 @injectable()
 export class InvestmentService implements IInvestmentService {

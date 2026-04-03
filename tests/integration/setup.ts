@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { configureContainer } from '../../src/container';
+import { loadContainer } from '../../src/loaders/ContainerLoader';
 
 // Configure DI container once for all tests
-configureContainer();
+loadContainer();
 
 export const prisma = new PrismaClient();
 
