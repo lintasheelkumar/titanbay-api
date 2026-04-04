@@ -1,0 +1,74 @@
+---
+title: Repository Pattern
+---
+classDiagram
+    class IFundRepository {
+        <<interface>>
+        +findAll(params) object
+        +findById(id) Fund or null
+        +exists(id) boolean
+        +create(data) Fund
+        +update(id, data) Fund
+    }
+
+    class IInvestorRepository {
+        <<interface>>
+        +findAll(params) object
+        +findById(id) Investor or null
+        +findByEmail(email) Investor or null
+        +create(data) Investor
+    }
+
+    class IInvestmentRepository {
+        <<interface>>
+        +findByFund(fundId, params) object
+        +create(fundId, data) Investment
+    }
+
+    class PrismaFundRepository {
+        -prisma: PrismaClient
+        +findAll(params) object
+        +findById(id) Fund or null
+        +exists(id) boolean
+        +create(data) Fund
+        +update(id, data) Fund
+    }
+
+    class PrismaInvestorRepository {
+        -prisma: PrismaClient
+        -INVESTOR_TYPE_MAP
+        +findAll(params) object
+        +findById(id) Investor or null
+        +findByEmail(email) Investor or null
+        +create(data) Investor
+    }
+
+    class PrismaInvestmentRepository {
+        -prisma: PrismaClient
+        +findByFund(fundId, params) object
+        +create(fundId, data) Investment
+    }
+
+    class FundService {
+        -fundRepo: IFundRepository
+    }
+
+    class InvestorService {
+        -investorRepo: IInvestorRepository
+    }
+
+    class InvestmentService {
+        -investmentRepo: IInvestmentRepository
+    }
+
+    IFundRepository <|.. PrismaFundRepository : implements
+    IInvestorRepository <|.. PrismaInvestorRepository : implements
+    IInvestmentRepository <|.. PrismaInvestmentRepository : implements
+
+    FundService --> IFundRepository : injects TOKENS.FundRepo
+    InvestorService --> IInvestorRepository : injects TOKENS.InvestorRepo
+    InvestmentService --> IInvestmentRepository : injects TOKENS.InvestmentRepo
+
+    note for PrismaFundRepository "Uses prisma.$transaction\nfor atomic findMany + count"
+    note for PrismaInvestorRepository "Maps string → Prisma enum\nvia INVESTOR_TYPE_MAP"
+    note for PrismaInvestmentRepository "Converts string date\n→ JS Date on create"

@@ -123,7 +123,6 @@ Each test suite resets the relevant tables before running.
 - Container-ready for Cloud Run / GKE deployment
 - Prisma connection pooling handles concurrent requests
 - Would add: rate limiting, API key authentication, structured request
-  logging (pino), response caching for read-heavy endpoints
 
 ## AI Tool Usage
 

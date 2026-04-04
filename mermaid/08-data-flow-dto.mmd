@@ -1,0 +1,31 @@
+---
+title: Data Flow & DTO Transformations
+---
+flowchart LR
+    subgraph DB["Database"]
+        Row["Prisma Entity\n─────────\nid: string\nname: string\ntarget_size_usd: Decimal\nstatus: FundStatus enum\ncreated_at: Date\nupdated_at: Date"]
+    end
+
+    subgraph Repo["Repository"]
+        Raw["{ data: Fund[]\n  total: number }"]
+    end
+
+    subgraph Service["Service — DTO Mapping"]
+        DTO["FundResponseDto\n─────────\nid: string\nname: string\ntarget_size_usd: number  ← .toNumber()\nstatus: string\ncreated_at: string       ← .toISOString()\nupdated_at: string       ← .toISOString()"]
+        Paginated["PaginatedResponse\n─────────\ndata: FundResponseDto[]\ntotal: number\npage: number\nlimit: number\ntotalPages: number"]
+    end
+
+    subgraph Controller["Controller"]
+        JSON["res.json(result.value)"]
+    end
+
+    DB -->|prisma.$transaction| Repo
+    Repo -->|toFundResponseList| DTO
+    DTO -->|buildPaginatedResponse| Paginated
+    Paginated -->|Result.ok| JSON
+
+    subgraph Input["Inbound — Request Body"]
+        ZOD["Zod Schema\nvalidateBody/parse\n─────────\nname: string 1-255\nvintage_year: int\ntarget_size_usd: number\nstatus?: enum"]
+    end
+
+    ZOD -->|CreateFundInput| Service

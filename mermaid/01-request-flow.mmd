@@ -1,0 +1,40 @@
+---
+title: Request Flow — GET /funds
+---
+sequenceDiagram
+    participant Client
+    participant Express
+    participant Validate as validateBody/<br/>validateParams
+    participant Controller as FundController
+    participant Cache as CachingFundService
+    participant Log as LoggingFundService
+    participant Service as FundService
+    participant Repo as PrismaFundRepository
+    participant DB as PostgreSQL
+
+    Client->>Express: GET /funds?page=1&limit=20
+    Express->>Validate: paginationSchema.parse(req.query)
+    alt invalid params
+        Validate-->>Client: 400 ValidationError
+    end
+    Validate->>Controller: listFunds(req, res)
+    Controller->>Cache: findAll({ page:1, limit:20 })
+
+    alt cache HIT
+        Cache-->>Controller: Result.ok(cachedData)
+        Controller-->>Client: 200 PaginatedResponse
+    end
+
+    Cache->>Log: findAll(params)
+    Note over Log: start = Date.now()
+    Log->>Service: findAll(params)
+    Service->>Repo: findAll(params)
+    Repo->>DB: $transaction([findMany, count])
+    DB-->>Repo: [rows, total]
+    Repo-->>Service: { data, total }
+    Service-->>Log: Result.ok(PaginatedResponse<DTO>)
+    Note over Log: duration = Date.now() - start<br/>logs info / warn if > 200ms
+    Log-->>Cache: Result.ok(PaginatedResponse<DTO>)
+    Cache->>Cache: cache.set(key, value, 300s)
+    Cache-->>Controller: Result.ok(PaginatedResponse<DTO>)
+    Controller-->>Client: 200 PaginatedResponse

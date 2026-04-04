@@ -1,0 +1,48 @@
+---
+title: DI Container Wiring (ContainerLoader)
+---
+flowchart LR
+    subgraph Infra["Infrastructure"]
+        P[PrismaClient\nregisterInstance]
+        C[NodeCacheService\nregisterSingleton]
+        L[PinoLogger\nregisterSingleton]
+    end
+
+    subgraph Repos["Repositories\nregisterSingleton"]
+        FR[PrismaFundRepository]
+        IR[PrismaInvestorRepository]
+        IVR[PrismaInvestmentRepository]
+    end
+
+    subgraph CoreSvc["Core Services\nregisterSingleton"]
+        FS[FundService\nTOKENS.FundServiceCore]
+        IS[InvestorService\nTOKENS.InvestorServiceCore]
+        IVS[InvestmentService\nTOKENS.InvestmentServiceCore]
+    end
+
+    subgraph DecSvc["Decorated Services\nregister useFactory"]
+        DFS["TOKENS.FundService\nCaching→Logging→Core"]
+        DIS["TOKENS.InvestorService\nCaching→Logging→Core"]
+        DIVS["TOKENS.InvestmentService\nCaching→Logging→Core"]
+    end
+
+    subgraph Ctrl["Controllers\nregisterSingleton"]
+        FC[FundController]
+        IC[InvestorController]
+        IVC[InvestmentController]
+    end
+
+    P --> FR & IR & IVR
+    FR --> FS
+    IR --> IS
+    IVR --> IVS
+
+    FS --> DFS
+    IS --> DIS
+    IVS --> DIVS
+    C --> DFS & DIS & DIVS
+    L --> DFS & DIS & DIVS
+
+    DFS --> FC
+    DIS --> IC
+    DIVS --> IVC

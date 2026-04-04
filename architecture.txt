@@ -1,0 +1,495 @@
+================================================================================
+TITANBAY API — ARCHITECTURE OVERVIEW
+================================================================================
+
+TABLE OF CONTENTS
+  1.  App Startup & Boot Sequence
+  2.  Dependency Injection (tsyringe)
+  3.  Repository Pattern
+  4.  Service Layer & Decorator Pattern
+  5.  Result / Error Pattern
+  6.  DTO Pattern
+  7.  Validation Pattern (Zod)
+  8.  Pagination Abstraction
+  9.  Caching
+  10. Logging
+  11. Route & Middleware Setup
+  12. Swagger / OpenAPI
+  13. Constants Organisation
+  14. Miscellaneous Patterns
+
+
+================================================================================
+1. APP STARTUP & BOOT SEQUENCE
+================================================================================
+
+Entry point: src/index.ts
+  1. import 'reflect-metadata'    — required by tsyringe before any DI usage
+  2. import 'dotenv/config'        — loads .env into process.env
+  3. createApp()                   — initialises Express (see app.ts)
+  4. loadPrisma()                  — calls prisma.$connect() once at startup
+  5. loadContainer()               — wires the entire DI container
+  6. app.listen(PORT)              — starts the HTTP server
+
+app.ts initialisation order:
+  1. Create Express app
+  2. loadSwagger(app)     — mounts Swagger UI at /api-docs
+  3. GET /health          — simple health-check endpoint
+  4. loadExpress(app)     — registers routes + middleware stack
+
+Loader modules (src/loaders/):
+  PrismaLoader.ts    — single prisma.$connect() call
+  ContainerLoader.ts — all DI token registrations and factory compositions
+  ExpressLoader.ts   — express.json → routes → notFound → errorHandler
+  SwaggerLoader.ts   — mounts swagger-ui-express at /api-docs
+
+
+================================================================================
+2. DEPENDENCY INJECTION (tsyringe)
+================================================================================
+
+Library: tsyringe (Microsoft) — constructor-injection via decorators.
+Requires `reflect-metadata` to be imported before any DI code runs.
+
+Token registry: src/constants/tokens.ts
+  All DI symbols live here as Symbol.for() values, grouped by layer:
+    Infrastructure: PrismaClient, CacheService, Logger
+    Repositories:   FundRepo, InvestorRepo, InvestmentRepo
+    Services:       FundServiceCore, InvestorServiceCore, InvestmentServiceCore
+                    FundService, InvestorService, InvestmentService  (decorated)
+  Using a single registry prevents token collisions and makes refactoring safe.
+
+Registration tiers in ContainerLoader.ts:
+
+  Infrastructure (lines 40-42)
+    container.registerInstance(TOKENS.PrismaClient, prisma)
+    container.registerSingleton(TOKENS.CacheService, NodeCacheService)
+    container.registerSingleton(TOKENS.Logger, PinoLogger)
+
+  Repositories (lines 45-47)
+    container.registerSingleton(TOKENS.FundRepo, PrismaFundRepository)
+    … (same for Investor, Investment)
+
+  Core services (lines 50-52)
+    container.registerSingleton(TOKENS.FundServiceCore, FundService)
+    … (same for Investor, Investment)
+
+  Decorated services — useFactory composes the decorator chain (lines 56-81):
+    container.register(TOKENS.FundService, { useFactory: (c) =>
+      new CachingFundService(
+        new LoggingFundService(
+          c.resolve(TOKENS.FundServiceCore),   // innermost: pure logic
+          logger
+        ),
+        cache, logger                           // outermost: caching
+      )
+    })
+
+  Controllers (lines 84-86)
+    container.registerSingleton(FundController)
+    … (same for Investor, Investment)
+
+Lazy resolution in routes:
+  Routes call container.resolve(FundController) inside the handler, not at
+  startup. This allows tests to reconfigure the container before any request.
+
+
+================================================================================
+3. REPOSITORY PATTERN
+================================================================================
+
+Purpose: abstract all database access behind an interface so services never
+import Prisma directly, making the persistence layer swappable and testable.
+
+Interfaces: src/database/repositories/interfaces/
+  IFundRepository       findAll, findById, exists, create, update
+  IInvestorRepository   findAll, findById, findByEmail, create
+  IInvestmentRepository findByFund, create
+
+Implementations: src/database/repositories/
+  PrismaFundRepository       — @injectable(), injects TOKENS.PrismaClient
+  PrismaInvestorRepository   — maps string investor type to Prisma enum
+  PrismaInvestmentRepository — converts string date to JS Date on create
+
+Common implementation details:
+  - findAll uses prisma.$transaction([findMany, count]) for an atomic
+    count + fetch, preventing total/data mismatches under concurrent writes.
+  - Pagination offset: skip = (page - 1) * limit
+  - Returns { data, total } — services then call buildPaginatedResponse()
+  - exists() uses count({ where: { id } }) > 0 rather than fetching the row
+
+Type mapping in PrismaInvestorRepository:
+  Incoming strings ('individual', 'institutional') are mapped to the Prisma
+  enum via a lookup map (INVESTOR_TYPE_MAP) before being written to the DB.
+
+Registration:
+  Registered as singletons in ContainerLoader.ts; injected into core services
+  via @inject(TOKENS.FundRepo) etc.
+
+
+================================================================================
+4. SERVICE LAYER & DECORATOR PATTERN
+================================================================================
+
+Each domain (Fund, Investor, Investment) has three service classes, all
+implementing the same IXxxService interface:
+
+  Core Service (e.g. FundService)
+    - Pure business logic — no logging, no caching concerns.
+    - Injects a repository, calls it, maps entities to DTOs.
+    - Catches DB exceptions and wraps them in Result.fail(InfrastructureError).
+    - Handles domain rules: FundNotFoundError, DuplicateEmailError, etc.
+    - Registered as TOKENS.FundServiceCore.
+
+  Logging Decorator (LoggingFundService)
+    - Wraps any IFundService (receives core in practice).
+    - Records Date.now() before delegating, logs duration on return.
+    - Logs info on success (with count/total), error on failure.
+    - Emits a WARN if duration exceeds SLOW_QUERY_MS = 200ms.
+    - findById logs NOT_FOUND at debug level (not an error).
+
+  Caching Decorator (CachingFundService)
+    - Outermost layer — wraps LoggingFundService.
+    - On read: check NodeCache → hit returns immediately without calling inner.
+    - On read miss: delegate to inner, store result in cache with TTL.
+    - On write (create/update): cache the single entity, invalidate all list
+      keys via invalidateByPrefix(CacheKeys.FUNDS_LIST_PREFIX).
+
+Call chain for a cache miss:
+  Controller → CachingFundService → LoggingFundService → FundService
+             → PrismaXxxRepository → Prisma → Database
+
+Call chain for a cache hit:
+  Controller → CachingFundService (returns cached value — inner never called)
+
+Important: because Caching wraps Logging, a cache hit bypasses logging
+entirely. Only cache misses are timed and logged.
+
+Service interfaces: src/services/interfaces/
+  All three interfaces follow the same shape:
+    findAll(params: PaginationParams): Promise<Result<PaginatedResponse<DTO>>>
+    findById(id: string):             Promise<Result<DTO>>
+    create(data: CreateInput):        Promise<Result<DTO>>
+    update(data: UpdateInput):        Promise<Result<DTO>>
+
+
+================================================================================
+5. RESULT / ERROR PATTERN
+================================================================================
+
+File: src/lib/result.ts
+  Result<T, E extends DomainError> is a discriminated union with two states:
+    Result.ok(value)   → { isOk: true,  isErr: false, value: T }
+    Result.fail(error) → { isOk: false, isErr: true,  error: E }
+
+  No exceptions cross layer boundaries. Services return Result.fail() instead
+  of throwing. Controllers unwrap and map to HTTP responses.
+
+Error hierarchy: src/errors/domain-errors.ts
+  DomainError (abstract)          — base, requires code (string) + statusCode
+    NotFoundError (abstract)      — statusCode 404
+      FundNotFoundError           — code 'FUND_NOT_FOUND'
+      InvestorNotFoundError       — code 'INVESTOR_NOT_FOUND'
+    DuplicateEmailError           — statusCode 409, code 'DUPLICATE_EMAIL'
+    ValidationError               — statusCode 400, code 'VALIDATION_ERROR'
+                                    carries optional details: FieldError[]
+    InfrastructureError           — statusCode 500, wraps the original Error cause
+
+Controller unwrap pattern (fund.controller.ts):
+  const result = await this.service.findAll(params);
+  if (result.isErr)
+    return res.status(result.error.statusCode).json({ error: { code, message } });
+  return res.json(result.value);
+
+Special DB error detection:
+  Prisma unique-constraint violations (error.code === 'P2002') are caught in
+  FundService.create and converted to ValidationError rather than
+  InfrastructureError (fund.service.ts line 21).
+
+
+================================================================================
+6. DTO PATTERN
+================================================================================
+
+Files: src/api/dtos/
+  fund.dto.ts, investor.dto.ts, investment.dto.ts
+
+Purpose: decouple the public API contract from the Prisma entity shape, and
+perform type conversions at the boundary.
+
+Each file exports:
+  - An interface (e.g. FundResponseDto) with serialisation-safe types
+  - toXxxResponse(entity)        — single-entity mapper
+  - toXxxResponseList(entities)  — array mapper
+
+Notable conversions:
+  fund.dto.ts
+    target_size_usd: Decimal → number via .toNumber()
+    created_at / updated_at: Date → ISO string via .toISOString()
+
+  investor.dto.ts
+    investor_type: Prisma enum → display string via INVESTOR_TYPE_DISPLAY map
+
+  investment.dto.ts
+    investment_date: Date → YYYY-MM-DD string via .toISOString().split('T')[0]
+
+Flow:  DB entity → DTO mapper → PaginatedResponse<DTO> → res.json()
+
+
+================================================================================
+7. VALIDATION PATTERN (ZOD)
+================================================================================
+
+Schemas: src/api/schemas/
+  fund.schema.ts        createFundSchema, updateFundSchema, fundParamsSchema
+  investor.schema.ts    createInvestorSchema
+  investment.schema.ts  createInvestmentSchema, fundInvestmentsParamsSchema
+  pagination.schema.ts  paginationSchema (coerces string query params to numbers)
+
+Two-layer validation:
+
+  Layer 1 — Middleware (src/api/middlewares/validate.ts)
+    validateBody(schema)   — runs schema.parse(req.body), calls next() on pass
+    validateParams(schema) — runs schema.parse(req.params)
+    On ZodError: converts to ValidationError with field-level details array
+    Registered in route definitions before the controller handler:
+      router.post('/', validateBody(createFundSchema), controller.createFund)
+
+  Layer 2 — Controller (defence-in-depth)
+    Controllers also call schema.parse() directly (e.g. paginationSchema on
+    req.query). Caught by the global error handler if it throws.
+
+pagination.schema.ts specifics:
+  page:  coerce → number, min 1, default 1
+  limit: coerce → number, min 1, max 100, default 20
+
+
+================================================================================
+8. PAGINATION ABSTRACTION
+================================================================================
+
+Files:
+  src/lib/pagination.ts          — types and builder function
+  src/api/schemas/pagination.schema.ts — request validation
+
+Types (pagination.ts):
+  PaginationParams      { page: number; limit: number }
+  PaginatedResponse<T>  { data: T[]; total: number; page; limit; totalPages }
+
+Helper:
+  buildPaginatedResponse<T>(data, total, params): PaginatedResponse<T>
+    totalPages = Math.ceil(total / params.limit)
+
+Repository role:
+  Returns raw { data: Entity[]; total: number } — no pagination envelope.
+
+Service role:
+  Calls buildPaginatedResponse(toFundResponseList(data), total, params).
+
+This separation means repositories stay simple; the envelope is constructed
+once in the service layer, consistently across all domains.
+
+
+================================================================================
+9. CACHING
+================================================================================
+
+Library: node-cache (in-process memory cache)
+
+Interface: src/lib/cache.ts — ICacheService
+  get<T>(key): T | undefined
+  set<T>(key, value, ttl?)
+  del(key)
+  invalidateByPrefix(prefix)   — bulk delete all keys matching prefix
+  flush()                      — clear entire cache
+
+Implementation: NodeCacheService (cache.ts)
+  stdTTL: 300s, checkperiod: 60s, useClones: false
+  get() validates the returned value is a non-null object before returning it
+  set() treats write failures as non-fatal ("cache is best-effort; DB is truth")
+  invalidateByPrefix() calls this.cache.keys(), filters, then this.cache.del()
+
+TTL constants (src/constants/cache.ts):
+  CACHE_TTL_SECONDS = 300   — paginated list results (5 minutes)
+  CACHE_TTL_SINGLE  = 120   — individual entity results (2 minutes)
+  CACHE_CHECK_PERIOD = 60   — node-cache internal cleanup interval
+
+Cache key builders (constants/cache.ts):
+  CacheKeys.FUNDS_LIST_PREFIX        'funds:list'
+  CacheKeys.FUNDS_LIST(page, limit)  'funds:list:p{page}:l{limit}'
+  CacheKeys.FUND_BY_ID(id)           'funds:{id}'
+  (same pattern for investors and investments)
+
+Invalidation strategy:
+  create / update → cache the single entity + invalidateByPrefix(LIST_PREFIX)
+  This nukes all paginated list pages for that domain on any mutation.
+
+Cache is registered as a singleton so all decorated services share one store.
+
+
+================================================================================
+10. LOGGING
+================================================================================
+
+Library: pino (structured JSON logger)
+
+Interface: src/lib/logger.ts — ILogger
+  info(message, data?)
+  warn(message, data?)
+  error(message, data?)
+  debug(message, data?)
+
+Implementation: PinoLogger (logger.ts)
+  Log level:      from LOG_LEVEL env var, defaults to 'info'
+  Pretty-print:   enabled only when LOG_PRETTY=true (dev convenience)
+  Method call:    pino convention — logger.info(data ?? {}, message)
+
+Log message constants: src/constants/log-messages.ts
+  Centralised strings for all domains and infrastructure events.
+  Examples: FUND_LIST_FETCHED, SLOW_QUERY_DETECTED, FUND_CREATED
+
+Where logging happens:
+  LoggingXxxService decorators (not middleware) instrument every service call.
+  No HTTP request-level access log is currently configured.
+
+Slow query threshold: SLOW_QUERY_MS = 200 (logging-fund.service.ts line 9)
+  Any call exceeding this emits an additional WARN alongside the normal log.
+
+
+================================================================================
+11. ROUTE & MIDDLEWARE SETUP
+================================================================================
+
+Route composition: src/api/routes/index.ts
+  router.use('/funds', createFundRouter())
+  router.use('/investors', createInvestorRouter())
+  router.use('/funds/:fund_id/investments', createInvestmentRouter())
+
+Route file pattern (e.g. fund.routes.ts):
+  - Factory function createFundRouter() returns an Express Router
+  - Each handler lazily resolves its controller: container.resolve(FundController)
+  - Middleware is applied per-route (not globally) before the handler:
+      router.post('/', validateBody(createFundSchema), controller.createFund)
+  - JSDoc comments above each route for Swagger spec generation
+
+Middleware stack (registered in ExpressLoader.ts):
+  1. express.json()          — parse JSON request bodies
+  2. createRouter()          — all API routes mounted under the router
+  3. notFoundHandler         — catches unmatched routes → 404
+  4. errorHandler            — global error catch-all (last in chain)
+
+Error handler (middlewares/errorHandler.ts):
+  1. DomainError instance    → res.status(error.statusCode).json({ error: {...} })
+  2. ZodError (thrown)       → 400 + field-level validation details
+  3. SyntaxError (bad JSON)  → 400 VALIDATION_ERROR
+  4. Anything else           → log at error level + 500 INTERNAL_SERVER_ERROR
+
+Not-found handler (middlewares/notFound.ts):
+  Returns 404 with the unmatched route path in the message body.
+
+Validation middleware (middlewares/validate.ts):
+  validateBody(schema)   — wraps req.body, converts ZodError → ValidationError
+  validateParams(schema) — wraps req.params, same conversion
+
+
+================================================================================
+12. SWAGGER / OPENAPI
+================================================================================
+
+Setup:
+  SwaggerLoader.ts mounts swagger-ui-express at /api-docs
+  Raw spec available at /api-docs.json
+  Swagger config: src/config/swagger.ts (reusable component schemas, lines 20-147)
+
+Spec authoring:
+  JSDoc comments directly above route handlers in route files (e.g. lines 10-34
+  in fund.routes.ts). swagger-jsdoc scans these at startup.
+
+Component schemas defined in swagger.ts:
+  FundResponse, InvestorResponse, InvestmentResponse
+  ErrorResponse, ValidationErrorResponse
+  PaginatedFundResponse (etc.)
+
+
+================================================================================
+13. CONSTANTS ORGANISATION
+================================================================================
+
+src/constants/
+  tokens.ts         — all DI Symbol.for() tokens (single registry)
+  cache.ts          — TTL values + CacheKeys builder functions
+  http.ts           — HTTP status code numeric constants
+  log-messages.ts   — structured log string constants
+  index.ts          — re-exports all of the above
+
+Keeping constants in one directory prevents magic numbers and strings from
+scattering across the codebase, and makes token/key changes a single-file edit.
+
+
+================================================================================
+14. MISCELLANEOUS PATTERNS
+================================================================================
+
+Single-Flight (src/lib/single-flight.ts)
+  Prevents cache-stampede under high concurrency: multiple concurrent calls
+  with the same key share a single in-flight Promise rather than all hitting
+  the DB simultaneously. Implemented as a Map<key, Promise>. Present in the
+  codebase but not yet wired into the caching decorators.
+
+Enum mapping in repositories
+  PrismaInvestorRepository maps incoming API strings to Prisma-generated enums
+  via a static lookup map (INVESTOR_TYPE_MAP) before writing to the DB.
+  The reverse mapping (enum → display string) lives in investor.dto.ts.
+
+Transaction safety
+  All paginated repository reads wrap findMany + count in prisma.$transaction()
+  to ensure the total and the data page are from the same consistent snapshot.
+
+Unique-constraint detection
+  FundService.create checks error.code === 'P2002' (Prisma unique violation)
+  and converts it to a ValidationError instead of an InfrastructureError,
+  giving the client a meaningful 400 rather than a 500.
+
+No auth / CORS (currently)
+  Neither auth middleware nor CORS headers are configured. These are the
+  obvious next extension points before the API is exposed publicly.
+
+
+================================================================================
+LAYER DIAGRAM
+================================================================================
+
+  HTTP Request
+       │
+       ▼
+  Express Middleware
+    express.json → validateBody/validateParams (Zod)
+       │
+       ▼
+  Controller  (src/api/controllers/)
+    parse & validate input → call service → unwrap Result → HTTP response
+       │
+       ▼
+  CachingXxxService  (src/services/decorators/)
+    cache hit? → return immediately
+    cache miss? → delegate, then store result
+       │
+       ▼
+  LoggingXxxService  (src/services/decorators/)
+    time the call → delegate → log outcome + slow-query warning
+       │
+       ▼
+  XxxService  (src/services/)
+    business logic → call repository → map to DTO → return Result<DTO>
+       │
+       ▼
+  PrismaXxxRepository  (src/database/repositories/)
+    Prisma queries (transactions for list+count) → return raw entities
+       │
+       ▼
+  Database (PostgreSQL via Prisma)
+
+  Cross-cutting:
+    Result<T, DomainError>  — error type propagates up every layer
+    ILogger                 — injected into decorators + error handler
+    ICacheService           — injected into caching decorators (singleton)

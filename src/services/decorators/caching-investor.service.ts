@@ -10,7 +10,7 @@ import { IInvestorService } from "../interfaces/investor.service.interface";
 
 export class CachingInvestorService implements IInvestorService {
   constructor(
-    private readonly inner: IInvestorService,
+    private readonly investorService: IInvestorService,
     private readonly cache: ICacheService,
     private readonly logger: ILogger,
   ) {}
@@ -24,13 +24,13 @@ export class CachingInvestorService implements IInvestorService {
       this.logger.debug('Cache read error — falling through to inner service', { key, err });
     }
 
-    const result = await this.inner.findAll(params);
+    const result = await this.investorService.findAll(params);
     if (result.isOk) this.cache.set(key, result.value, CACHE_TTL_SECONDS);
     return result;
   }
 
   async create(data: CreateInvestorInput): Promise<Result<InvestorResponseDto>> {
-    const result = await this.inner.create(data);
+    const result = await this.investorService.create(data);
     if (result.isOk) this.cache.invalidateByPrefix(CacheKeys.INVESTORS_LIST_PREFIX);
     return result;
   }

@@ -1,0 +1,27 @@
+---
+title: Cache Invalidation Strategy
+---
+flowchart TD
+    subgraph Reads["Read Operations"]
+        R1[findAll - page N] -->|key: funds:list:pN:lM| CK{Cache\nHit?}
+        R2[findById - id] -->|key: funds:id| CK2{Cache\nHit?}
+        CK -->|Yes| RET1[return cached\nPaginatedResponse]
+        CK -->|No| DB1[query DB]
+        DB1 --> SET1[cache.set\nkey, value, 300s]
+        CK2 -->|Yes| RET2[return cached\nFundResponseDto]
+        CK2 -->|No| DB2[query DB]
+        DB2 --> SET2[cache.set\nkey, value, 120s]
+    end
+
+    subgraph Writes["Write Operations — create / update"]
+        W1[create or update] --> DB3[write to DB]
+        DB3 --> INV[cache.invalidateByPrefix\nfunds:list]
+        DB3 --> SET3[cache.set\nfunds:id, value, 120s]
+        INV -->|deletes| K1[funds:list:p1:l20]
+        INV -->|deletes| K2[funds:list:p2:l20]
+        INV -->|deletes| K3[funds:list:p1:l10\n...]
+    end
+
+    style RET1 fill:#d4edda
+    style RET2 fill:#d4edda
+    style INV fill:#f8d7da

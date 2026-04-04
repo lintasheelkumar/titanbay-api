@@ -1,0 +1,59 @@
+---
+title: Decorator Pattern — Service Layer
+---
+classDiagram
+    class IFundService {
+        <<interface>>
+        +findAll(params) Result~PaginatedResponse~
+        +findById(id) Result~FundResponseDto~
+        +create(data) Result~FundResponseDto~
+        +update(data) Result~FundResponseDto~
+    }
+
+    class FundService {
+        -fundRepo: IFundRepository
+        +findAll(params) Result~PaginatedResponse~
+        +findById(id) Result~FundResponseDto~
+        +create(data) Result~FundResponseDto~
+        +update(data) Result~FundResponseDto~
+    }
+
+    class LoggingFundService {
+        -fundService: IFundService
+        -logger: ILogger
+        +findAll(params) Result~PaginatedResponse~
+        +findById(id) Result~FundResponseDto~
+        +create(data) Result~FundResponseDto~
+        +update(data) Result~FundResponseDto~
+    }
+
+    class CachingFundService {
+        -fundService: IFundService
+        -cache: ICacheService
+        -logger: ILogger
+        +findAll(params) Result~PaginatedResponse~
+        +findById(id) Result~FundResponseDto~
+        +create(data) Result~FundResponseDto~
+        +update(data) Result~FundResponseDto~
+    }
+
+    class FundController {
+        -service: IFundService
+        +listFunds(req, res)
+        +getFund(req, res)
+        +createFund(req, res)
+        +updateFund(req, res)
+    }
+
+    IFundService <|.. FundService : implements
+    IFundService <|.. LoggingFundService : implements
+    IFundService <|.. CachingFundService : implements
+
+    LoggingFundService o-- FundService : wraps
+    CachingFundService o-- LoggingFundService : wraps
+
+    FundController --> IFundService : depends on\n(injected as TOKENS.FundService)
+
+    note for CachingFundService "Outermost layer.\nShort-circuits on cache hit —\nLoggingFundService never called."
+    note for LoggingFundService "Times the inner call.\nLogs success / error / slow query."
+    note for FundService "Pure business logic.\nNo caching or logging."

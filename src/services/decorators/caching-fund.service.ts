@@ -10,7 +10,7 @@ import { IFundService } from "../interfaces/fund.service.interface";
 
 export class CachingFundService implements IFundService {
   constructor(
-    private readonly inner: IFundService,
+    private readonly fundService: IFundService,
     private readonly cache: ICacheService,
     private readonly logger: ILogger,
   ) {}
@@ -24,7 +24,7 @@ export class CachingFundService implements IFundService {
       this.logger.debug('Cache read error — falling through to inner service', { key, err });
     }
 
-    const result = await this.inner.findAll(params);
+    const result = await this.fundService.findAll(params);
     if (result.isOk) this.cache.set(key, result.value, CACHE_TTL_SECONDS);
     return result;
   }
@@ -38,13 +38,13 @@ export class CachingFundService implements IFundService {
       this.logger.debug('Cache read error — falling through to inner service', { key, err });
     }
 
-    const result = await this.inner.findById(id);
+    const result = await this.fundService.findById(id);
     if (result.isOk) this.cache.set(key, result.value, CACHE_TTL_SINGLE);
     return result;
   }
 
   async create(data: CreateFundInput): Promise<Result<FundResponseDto>> {
-    const result = await this.inner.create(data);
+    const result = await this.fundService.create(data);
     if (result.isOk) {
       this.cache.set(CacheKeys.FUND_BY_ID(result.value.id), result.value, CACHE_TTL_SINGLE);
       this.cache.invalidateByPrefix(CacheKeys.FUNDS_LIST_PREFIX);
@@ -53,7 +53,7 @@ export class CachingFundService implements IFundService {
   }
 
   async update(data: UpdateFundInput): Promise<Result<FundResponseDto>> {
-    const result = await this.inner.update(data);
+    const result = await this.fundService.update(data);
     if (result.isOk) {
       this.cache.set(CacheKeys.FUND_BY_ID(data.id), result.value, CACHE_TTL_SINGLE);
       this.cache.invalidateByPrefix(CacheKeys.FUNDS_LIST_PREFIX);

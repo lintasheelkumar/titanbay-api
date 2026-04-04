@@ -1,0 +1,52 @@
+---
+title: Domain Error Hierarchy
+---
+classDiagram
+    class DomainError {
+        <<abstract>>
+        +message: string
+        +code: string*
+        +statusCode: number*
+    }
+
+    class NotFoundError {
+        <<abstract>>
+        +statusCode: 404
+    }
+
+    class FundNotFoundError {
+        +code: FUND_NOT_FOUND
+        +statusCode: 404
+    }
+
+    class InvestorNotFoundError {
+        +code: INVESTOR_NOT_FOUND
+        +statusCode: 404
+    }
+
+    class DuplicateEmailError {
+        +code: DUPLICATE_EMAIL
+        +statusCode: 409
+    }
+
+    class ValidationError {
+        +code: VALIDATION_ERROR
+        +statusCode: 400
+        +details: FieldError[]
+    }
+
+    class InfrastructureError {
+        +code: INFRASTRUCTURE_ERROR
+        +statusCode: 500
+        +cause: Error
+    }
+
+    DomainError <|-- NotFoundError
+    DomainError <|-- DuplicateEmailError
+    DomainError <|-- ValidationError
+    DomainError <|-- InfrastructureError
+    NotFoundError <|-- FundNotFoundError
+    NotFoundError <|-- InvestorNotFoundError
+
+    note for ValidationError "Carries field-level details[].\nUsed for Zod errors and\nPrisma P2002 unique violations."
+    note for InfrastructureError "Wraps the original DB/IO error.\nNever exposes cause to client."

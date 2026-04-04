@@ -10,13 +10,13 @@ const SLOW_QUERY_MS = 200;
 
 export class LoggingFundService implements IFundService {
   constructor(
-    private readonly inner: IFundService,
+    private readonly fundService: IFundService,
     private readonly logger: ILogger,
   ) {}
 
   async findAll(params: PaginationParams): Promise<Result<PaginatedResponse<FundResponseDto>>> {
     const start = Date.now();
-    const result = await this.inner.findAll(params);
+    const result = await this.fundService.findAll(params);
     const duration = Date.now() - start;
 
     if (result.isOk) {
@@ -38,13 +38,13 @@ export class LoggingFundService implements IFundService {
   }
 
   async findById(id: string): Promise<Result<FundResponseDto>> {
-    const result = await this.inner.findById(id);
+    const result = await this.fundService.findById(id);
     if (result.isErr) this.logger.debug(LOG_MESSAGES.FUND_NOT_FOUND, { id });
     return result;
   }
 
   async create(data: CreateFundInput): Promise<Result<FundResponseDto>> {
-    const result = await this.inner.create(data);
+    const result = await this.fundService.create(data);
     if (result.isOk) {
       this.logger.info(LOG_MESSAGES.FUND_CREATED, { id: result.value.id });
     } else {
@@ -54,7 +54,7 @@ export class LoggingFundService implements IFundService {
   }
 
   async update(data: UpdateFundInput): Promise<Result<FundResponseDto>> {
-    const result = await this.inner.update(data);
+    const result = await this.fundService.update(data);
     if (result.isOk) {
       this.logger.info(LOG_MESSAGES.FUND_UPDATED, { id: data.id });
     } else {

@@ -1,0 +1,52 @@
+---
+title: Layer Architecture
+---
+flowchart TD
+    Client([HTTP Client])
+
+    subgraph Express["Express Middleware Stack"]
+        MW1[express.json]
+        MW2[validateBody / validateParams]
+        MW3[notFoundHandler]
+        MW4[errorHandler]
+    end
+
+    subgraph Controllers["Controllers\nsrc/api/controllers/"]
+        FC[FundController]
+        IC[InvestorController]
+        IVC[InvestmentController]
+    end
+
+    subgraph Decorated["Decorated Services\n— composed in ContainerLoader —"]
+        direction TB
+        CS[CachingXxxService\noutermost]
+        LS[LoggingXxxService\nmiddle]
+        CS --> LS
+    end
+
+    subgraph Core["Core Services\nsrc/services/"]
+        FS[FundService]
+        IS[InvestorService]
+        IVS[InvestmentService]
+    end
+
+    subgraph Repos["Repositories\nsrc/database/repositories/"]
+        FR[PrismaFundRepository]
+        IR[PrismaInvestorRepository]
+        IVR[PrismaInvestmentRepository]
+    end
+
+    subgraph Infra["Infrastructure\nsrc/lib/"]
+        Cache[(NodeCacheService)]
+        Logger[(PinoLogger)]
+        Prisma[(PrismaClient)]
+    end
+
+    DB[(PostgreSQL)]
+
+    Client --> MW1 --> MW2 --> Controllers
+    Controllers --> Decorated --> Core --> Repos --> Prisma --> DB
+    CS -. reads/writes .-> Cache
+    CS -. logs .-> Logger
+    LS -. logs .-> Logger
+    MW4 -. logs .-> Logger
