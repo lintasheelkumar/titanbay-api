@@ -1,8 +1,8 @@
 import { injectable, inject } from 'tsyringe';
 import { IInvestmentService } from './interfaces/investment.service.interface.js';
-import { IInvestmentRepository } from '../database/repositories/interfaces/IInvestmentRepository.js';
-import { IFundRepository } from '../database/repositories/interfaces/IFundRepository.js';
-import { IInvestorRepository } from '../database/repositories/interfaces/IInvestorRepository.js';
+import { IInvestmentRepository } from '../database/repositories/interfaces/investment-repository.interface.js';
+import { IFundRepository } from '../database/repositories/interfaces/fund-repository.interface.js';
+import { IInvestorRepository } from '../database/repositories/interfaces/investor-repository.interface.js';
 import {
   InvestmentResponseDto,
   toInvestmentResponse,

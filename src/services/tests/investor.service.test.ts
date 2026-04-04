@@ -1,6 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { InvestorService } from '../investor.service.js';
-import { IInvestorRepository } from '../../database/repositories/interfaces/IInvestorRepository.js';
+import { IInvestorRepository } from '../../database/repositories/interfaces/investor-repository.interface.js';
 import { DuplicateEmailError, InfrastructureError } from '../../errors/domain-errors.js';
 import { Investor, InvestorType } from '@prisma/client';
 

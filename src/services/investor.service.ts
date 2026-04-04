@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { IInvestorService } from './interfaces/investor.service.interface.js';
-import { IInvestorRepository } from '../database/repositories/interfaces/IInvestorRepository.js';
+import { IInvestorRepository } from '../database/repositories/interfaces/investor-repository.interface.js';
 import { InvestorResponseDto, toInvestorResponse, toInvestorResponseList } from '../api/dtos/investor.dto.js';
 import { buildPaginatedResponse, PaginatedResponse, PaginationParams } from '../lib/pagination.js';
 import { Result } from '../lib/result.js';

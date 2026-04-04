@@ -1,6 +1,6 @@
 import { PrismaClient, InvestorType } from '@prisma/client';
 import { inject, injectable } from 'tsyringe';
-import { IInvestorRepository } from './interfaces/IInvestorRepository.js';
+import { IInvestorRepository } from './interfaces/investor-repository.interface.js';
 import { PaginationParams } from '../../lib/pagination.js';
 import { CreateInvestorInput } from '../../api/schemas/investor.schema.js';
 import { TOKENS } from '../../constants/tokens.js';

@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { IFundService } from './interfaces/fund.service.interface.js';
-import { IFundRepository } from '../database/repositories/interfaces/IFundRepository.js';
+import { IFundRepository } from '../database/repositories/interfaces/fund-repository.interface.js';
 import { FundResponseDto, toFundResponse, toFundResponseList } from '../api/dtos/fund.dto.js';
 import { buildPaginatedResponse, PaginatedResponse, PaginationParams } from '../lib/pagination.js';
 import { Result } from '../lib/result.js';

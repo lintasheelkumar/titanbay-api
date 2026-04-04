@@ -9,9 +9,9 @@ import { NodeCacheService, ICacheService } from '../lib/cache.js';
 import { PinoLogger, ILogger } from '../lib/logger.js';
 
 // Repositories
-import { PrismaFundRepository } from '../database/repositories/PrismaFundRepository.js';
-import { PrismaInvestorRepository } from '../database/repositories/PrismaInvestorRepository.js';
-import { PrismaInvestmentRepository } from '../database/repositories/PrismaInvestmentRepository.js';
+import { PrismaFundRepository } from '../database/repositories/prisma-fund-repository.js';
+import { PrismaInvestorRepository } from '../database/repositories/prisma-investor-repository.js';
+import { PrismaInvestmentRepository } from '../database/repositories/prisma-investment-repository.js';
 
 // Core services
 import { FundService } from '../services/fund.service.js';
