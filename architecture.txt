@@ -430,12 +430,6 @@ scattering across the codebase, and makes token/key changes a single-file edit.
 14. MISCELLANEOUS PATTERNS
 ================================================================================
 
-Single-Flight (src/lib/single-flight.ts)
-  Prevents cache-stampede under high concurrency: multiple concurrent calls
-  with the same key share a single in-flight Promise rather than all hitting
-  the DB simultaneously. Implemented as a Map<key, Promise>. Present in the
-  codebase but not yet wired into the caching decorators.
-
 Enum mapping in repositories
   PrismaInvestorRepository maps incoming API strings to Prisma-generated enums
   via a static lookup map (INVESTOR_TYPE_MAP) before writing to the DB.

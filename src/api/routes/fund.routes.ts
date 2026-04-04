@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { container } from '@loaders/ContainerLoader.js';
 import { FundController } from '@controllers/fund.controller.js';
 import { validateBody, validateParams } from '@middlewares/validate.js';
-import { createFundSchema, updateFundSchema, fundParamsSchema } from '@schemas/fund.schema.js';
+import { createFundSchema, updateFundBodySchema, fundParamsSchema } from '@schemas/fund.schema.js';
 
 export function createFundRouter(): Router {
   const router = Router();
@@ -95,11 +95,18 @@ export function createFundRouter(): Router {
 
   /**
    * @openapi
-   * /funds:
+   * /funds/{id}:
    *   put:
    *     tags: [Funds]
    *     summary: Update an existing fund
-   *     description: Full replacement update. The fund ID is provided in the request body.
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *           format: uuid
+   *         description: Fund ID
    *     requestBody:
    *       required: true
    *       content:
@@ -126,7 +133,7 @@ export function createFundRouter(): Router {
    *             schema:
    *               $ref: '#/components/schemas/ErrorResponse'
    */
-  router.put('/', validateBody(updateFundSchema), (req, res, next) => container.resolve(FundController).updateFund(req, res, next));
+  router.put('/:id', validateParams(fundParamsSchema), validateBody(updateFundBodySchema), (req, res, next) => container.resolve(FundController).updateFund(req, res, next));
 
   return router;
 }

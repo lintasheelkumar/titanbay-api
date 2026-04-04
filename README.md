@@ -31,7 +31,7 @@ npm run dev
 | GET    | `/health` | Health check |
 | GET    | `/funds` | List all funds |
 | POST   | `/funds` | Create a fund |
-| PUT    | `/funds` | Update a fund (id in body — per spec) |
+| PUT    | `/funds/:id` | Update a fund |
 | GET    | `/funds/:id` | Get a fund by id |
 | GET    | `/investors` | List all investors |
 | POST   | `/investors` | Create an investor |
@@ -88,34 +88,57 @@ Each test suite resets the relevant tables before running.
 
 ## Architecture & Design Decisions
 
-- **Layered architecture**: Routes → Controllers → Services → Prisma.
-  Controllers handle only HTTP concerns (parse request, send response).
-  Services own business logic and are independently testable.
+> Visual diagrams in [mermaid/](mermaid/).
+>
+> | Diagram | What it shows |
+> |---------|---------------|
+> | [01-request-flow.mmd](mermaid/01-request-flow.mmd) | Sequence diagram — full GET /funds journey including cache hit/miss |
+> | [02-layer-architecture.mmd](mermaid/02-layer-architecture.mmd) | All layers from HTTP client to DB |
+> | [03-decorator-pattern.mmd](mermaid/03-decorator-pattern.mmd) | How Caching/Logging/Core wrap each other |
+> | [04-di-container.mmd](mermaid/04-di-container.mmd) | DI container wiring from infra through to controllers |
+> | [05-error-hierarchy.mmd](mermaid/05-error-hierarchy.mmd) | DomainError inheritance tree |
+> | [06-repository-pattern.mmd](mermaid/06-repository-pattern.mmd) | Repository interfaces vs Prisma implementations |
+> | [07-cache-invalidation.mmd](mermaid/07-cache-invalidation.mmd) | Cache read/write and invalidation strategy |
+> | [08-data-flow-dto.mmd](mermaid/08-data-flow-dto.mmd) | Entity → DTO type conversions |
 
-- **Decimal for monetary values**: PostgreSQL `NUMERIC(18,2)` via Prisma
-  `Decimal` to avoid floating-point precision errors on large fund amounts.
-  Serialised to `number` in JSON responses (matching the spec format).
+---
 
-- **UUID primary keys**: Prevents enumeration attacks, matches the spec,
-  and is natively supported by Postgres.
+**Layered architecture with Decorator pattern for cross-cutting concerns.**
+Routes → Controllers → Services → Repositories → Prisma. Logging and caching are applied as decorators that wrap the core service — the controller only knows the `IFundService` interface and has no awareness of either concern. This keeps business logic clean and makes each layer independently testable.
 
-- **Zod validation**: Input validated and TypeScript types inferred from
-  the same schema — single source of truth. Applied as Express middleware
-  before handlers run.
+**Repository pattern.**
+All database access sits behind interfaces (`IFundRepository` etc.) with Prisma implementations injected via the DI container. Services depend on the interface, not Prisma directly, so the persistence layer is swappable and unit tests can use plain mocks.
 
-- **Consistent error format**: Every error (validation, not found, conflict,
-  internal) returns the same JSON envelope with a machine-readable `code`.
+**Dependency injection (tsyringe).**
+Every dependency is registered in a single `ContainerLoader` and resolved by token. This makes the composition explicit and centralised — changing how a service is built (e.g. adding a new decorator) requires editing one file.
 
-- **PUT with id in body**: The spec defines `PUT /funds` with the fund id
-  inside the request body rather than the URL path. This is unconventional
-  (REST convention puts the id in the path: `PUT /funds/:id`) but the spec
-  was followed as-is. This design choice is noted here for discussion.
+**Result monad for error handling.**
+Service methods return `Result<T, DomainError>` instead of throwing. Errors are values that propagate through every layer without try/catch noise, and controllers map them to HTTP status codes deterministically.
 
-- **`bypass_validation` not honoured (by design)**: The transaction spec
-  includes a `bypass_validation` flag. This field is intentionally ignored —
-  skipping server-side validation based on a client-supplied flag is a
-  security anti-pattern that allows clients to submit arbitrary unvalidated
-  data. This is a deliberate decision, not an oversight.
+**Zod validation.**
+Request bodies and params are validated by Zod schemas before reaching controllers. Types are inferred from the same schema, so there is no duplication between the validation rule and the TypeScript type.
+
+**In-process caching (node-cache).**
+Paginated list results are cached for 5 minutes; individual entities for 2 minutes. Cache entries are invalidated by key-prefix on any mutation. Cache writes are best-effort — a miss falls through to the database transparently.
+
+**DTO mapping at the service boundary.**
+Prisma entities are never returned directly to callers. Each domain has a dedicated mapper (`toFundResponse` etc.) that converts DB types to serialisation-safe shapes — `Decimal` → `number`, `Date` → ISO string, enum → display string. This keeps the public API contract decoupled from the database schema.
+
+**Structured logging (Pino).**
+Logging is handled by a `LoggingXxxService` decorator, not HTTP middleware, so every log entry carries business context (fund id, result count, duration) rather than just request metadata. Slow queries (> 200 ms) emit an additional warning. Log level and pretty-printing are controlled via `LOG_LEVEL` and `LOG_PRETTY` env vars.
+
+**Decimal for monetary values.**
+PostgreSQL `NUMERIC(18,2)` via Prisma `Decimal` avoids floating-point precision errors on large fund amounts. Serialised to `number` in JSON responses.
+
+**UUID primary keys.**
+Prevents enumeration attacks, matches the spec, and is natively supported by Postgres.
+
+**Consistent error format.**
+Every error (validation, not found, conflict, internal) returns the same JSON envelope with a machine-readable `code`, making client error handling straightforward.
+
+**`bypass_validation` not honoured (by design).**
+The transaction spec includes a `bypass_validation` flag. This field is intentionally ignored — skipping server-side validation based on a client-supplied flag is a security anti-pattern. This is a deliberate decision, not an oversight.
+
 
 ## Scaling Considerations
 
@@ -124,15 +147,3 @@ Each test suite resets the relevant tables before running.
 - Prisma connection pooling handles concurrent requests
 - Would add: rate limiting, API key authentication, structured request
 
-## AI Tool Usage
-
-I used Claude (via Claude Code in VS Code) throughout development:
-- Architecture planning and technology choices
-- Scaffolding project structure and boilerplate
-- Writing Prisma schema and Zod validation schemas
-- Generating test cases and edge case identification
-- README and documentation drafting
-
-All code was reviewed and understood before committing. AI was used as a
-force multiplier for speed, while architectural decisions and code review
-remained my responsibility.

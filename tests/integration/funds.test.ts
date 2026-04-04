@@ -140,7 +140,7 @@ describe('GET /funds/:id', () => {
   });
 });
 
-describe('PUT /funds', () => {
+describe('PUT /funds/:id', () => {
   let fundId: string;
 
   beforeEach(async () => {
@@ -151,9 +151,8 @@ describe('PUT /funds', () => {
     fundId = fund.id;
   });
 
-  it('updates a fund with valid data (id in body per spec)', async () => {
-    const res = await request(app).put('/funds').send({
-      id: fundId,
+  it('updates a fund with valid data', async () => {
+    const res = await request(app).put(`/funds/${fundId}`).send({
       name: 'Updated Fund',
       vintage_year: 2023,
       target_size_usd: 40000000,
@@ -165,8 +164,7 @@ describe('PUT /funds', () => {
   });
 
   it('returns 404 for non-existent fund id', async () => {
-    const res = await request(app).put('/funds').send({
-      id: '00000000-0000-0000-0000-000000000000',
+    const res = await request(app).put('/funds/00000000-0000-0000-0000-000000000000').send({
       name: 'Ghost Fund',
       vintage_year: 2024,
       target_size_usd: 10000000,
@@ -175,13 +173,18 @@ describe('PUT /funds', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 400 for missing id', async () => {
-    const res = await request(app).put('/funds').send({
-      name: 'No ID Fund',
+  it('returns 400 for invalid UUID in path', async () => {
+    const res = await request(app).put('/funds/not-a-uuid').send({
+      name: 'Bad ID Fund',
       vintage_year: 2024,
       target_size_usd: 10000000,
       status: 'Closed',
     });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for missing required body fields', async () => {
+    const res = await request(app).put(`/funds/${fundId}`).send({ name: 'Incomplete' });
     expect(res.status).toBe(400);
   });
 });

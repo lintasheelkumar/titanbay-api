@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { injectable, inject } from 'tsyringe';
 import { IFundService } from '@services/interfaces/fund.service.interface.js';
-import { createFundSchema, updateFundSchema, fundParamsSchema } from '@schemas/fund.schema.js';
+import { createFundSchema, updateFundBodySchema, fundParamsSchema } from '@schemas/fund.schema.js';
 import { paginationSchema } from '@schemas/pagination.schema.js';
 import { TOKENS } from '@constants/tokens.js';
 
@@ -44,8 +44,9 @@ export class FundController {
 
   updateFund = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = updateFundSchema.parse(req.body);
-      const result = await this.service.update(data);
+      const { id } = fundParamsSchema.parse(req.params);
+      const body = updateFundBodySchema.parse(req.body);
+      const result = await this.service.update({ id, ...body });
       if (result.isErr) return res.status(result.error.statusCode).json({ error: { code: result.error.code, message: result.error.message } });
       return res.json(result.value);
     } catch (err) {

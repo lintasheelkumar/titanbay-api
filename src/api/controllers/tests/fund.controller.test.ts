@@ -222,7 +222,6 @@ describe('FundController.createFund', () => {
 describe('FundController.updateFund', () => {
   const VALID_UUID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
   const VALID_BODY = {
-    id: VALID_UUID,
     name: 'Updated Fund',
     vintage_year: 2023,
     target_size_usd: 2_000_000,
@@ -234,9 +233,13 @@ describe('FundController.updateFund', () => {
     service.update.mockResolvedValue(Result.ok({ ...FUND_DTO, name: 'Updated Fund' }));
     const res = makeRes();
 
-    await new FundController(service).updateFund(makeReq({ body: VALID_BODY }), res, makeNext());
+    await new FundController(service).updateFund(
+      makeReq({ params: { id: VALID_UUID }, body: VALID_BODY }),
+      res,
+      makeNext(),
+    );
 
-    expect(service.update).toHaveBeenCalledWith(VALID_BODY);
+    expect(service.update).toHaveBeenCalledWith({ id: VALID_UUID, ...VALID_BODY });
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated Fund' }));
   });
 
@@ -245,9 +248,27 @@ describe('FundController.updateFund', () => {
     service.update.mockResolvedValue(Result.fail(new FundNotFoundError(VALID_UUID)));
     const res = makeRes();
 
-    await new FundController(service).updateFund(makeReq({ body: VALID_BODY }), res, makeNext());
+    await new FundController(service).updateFund(
+      makeReq({ params: { id: VALID_UUID }, body: VALID_BODY }),
+      res,
+      makeNext(),
+    );
 
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('calls next() when the path id is not a valid UUID', async () => {
+    const service = makeMockService();
+    const next = makeNext();
+
+    await new FundController(service).updateFund(
+      makeReq({ params: { id: 'not-a-uuid' }, body: VALID_BODY }),
+      makeRes(),
+      next,
+    );
+
+    expect(next).toHaveBeenCalled();
+    expect(service.update).not.toHaveBeenCalled();
   });
 
   it('calls next() when the body fails Zod validation', async () => {
@@ -255,7 +276,7 @@ describe('FundController.updateFund', () => {
     const next = makeNext();
 
     await new FundController(service).updateFund(
-      makeReq({ body: { id: 'not-a-uuid' } }),
+      makeReq({ params: { id: VALID_UUID }, body: { name: '' } }),
       makeRes(),
       next,
     );
