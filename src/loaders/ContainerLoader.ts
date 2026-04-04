@@ -58,7 +58,7 @@ export function loadContainer() {
       const core = c.resolve<IFundService>(TOKENS.FundServiceCore);
       const cache = c.resolve<ICacheService>(TOKENS.CacheService);
       const logger = c.resolve<ILogger>(TOKENS.Logger);
-      return new CachingFundService(new LoggingFundService(core, logger), cache);
+      return new CachingFundService(new LoggingFundService(core, logger), cache, logger);
     },
   });
 
@@ -67,7 +67,7 @@ export function loadContainer() {
       const core = c.resolve<IInvestorService>(TOKENS.InvestorServiceCore);
       const cache = c.resolve<ICacheService>(TOKENS.CacheService);
       const logger = c.resolve<ILogger>(TOKENS.Logger);
-      return new CachingInvestorService(new LoggingInvestorService(core, logger), cache);
+      return new CachingInvestorService(new LoggingInvestorService(core, logger), cache, logger);
     },
   });
 
@@ -76,7 +76,7 @@ export function loadContainer() {
       const core = c.resolve<IInvestmentService>(TOKENS.InvestmentServiceCore);
       const cache = c.resolve<ICacheService>(TOKENS.CacheService);
       const logger = c.resolve<ILogger>(TOKENS.Logger);
-      return new CachingInvestmentService(new LoggingInvestmentService(core, logger), cache);
+      return new CachingInvestmentService(new LoggingInvestmentService(core, logger), cache, logger);
     },
   });
 

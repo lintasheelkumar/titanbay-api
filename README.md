@@ -68,6 +68,15 @@ The raw OpenAPI 3.0 spec is available at:
 
 All endpoints can be tested directly from the Swagger UI — click "Try it out" on any endpoint, modify the example values, and hit "Execute" to send a real request.
 
+### How the docs are generated
+
+The OpenAPI spec is built automatically at startup using `swagger-jsdoc`. There are two parts:
+
+- **Endpoint definitions** — generated from `@openapi` JSDoc comments co-located with each route handler (e.g. `src/api/routes/fund.routes.ts`). Adding a new route and its JSDoc block is all that's needed for it to appear in the docs.
+- **Shared schemas and parameters** — defined manually in `src/config/swagger.ts` (e.g. `Fund`, `Investor`, `ErrorResponse`, `PageParam`). These need to be updated when data models change.
+
+At build time, TypeScript compiles routes to `./dist/api/routes/*.js`. At startup, `swagger-jsdoc` scans those files, extracts all `@openapi` blocks, and merges them with the shared components to produce the final spec.
+
 ## Running Tests
 
 ```bash

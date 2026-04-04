@@ -1,7 +1,8 @@
 import { InvestorResponseDto } from "../../api/dtos/investor.dto";
 import { CreateInvestorInput } from "../../api/schemas/investor.schema";
-import { CacheKeys } from "../../constants";
+import { CACHE_TTL_SECONDS, CacheKeys } from "../../constants";
 import { ICacheService } from "../../lib/cache";
+import { ILogger } from "../../lib/logger";
 import { PaginatedResponse, PaginationParams } from "../../lib/pagination";
 import { Result } from "../../lib/result";
 import { IInvestorService } from "../interfaces/investor.service.interface";
@@ -11,6 +12,7 @@ export class CachingInvestorService implements IInvestorService {
   constructor(
     private readonly inner: IInvestorService,
     private readonly cache: ICacheService,
+    private readonly logger: ILogger,
   ) {}
 
   async findAll(params: PaginationParams): Promise<Result<PaginatedResponse<InvestorResponseDto>>> {
@@ -18,10 +20,12 @@ export class CachingInvestorService implements IInvestorService {
     try {
       const cached = this.cache.get<PaginatedResponse<InvestorResponseDto>>(key);
       if (cached && Array.isArray(cached.data)) return Result.ok(cached);
-    } catch { /* fall through */ }
+    } catch (err) {
+      this.logger.debug('Cache read error — falling through to inner service', { key, err });
+    }
 
     const result = await this.inner.findAll(params);
-    if (result.isOk) this.cache.set(key, result.value);
+    if (result.isOk) this.cache.set(key, result.value, CACHE_TTL_SECONDS);
     return result;
   }
 
