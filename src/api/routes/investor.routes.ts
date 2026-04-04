@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { container } from '../../loaders/ContainerLoader.js';
-import { InvestorController } from '../controllers/investor.controller.js';
-import { validateBody } from '../middlewares/validate.js';
-import { createInvestorSchema } from '../schemas/investor.schema.js';
+import { container } from '@loaders/ContainerLoader.js';
+import { InvestorController } from '@controllers/investor.controller.js';
+import { validateBody } from '@middlewares/validate.js';
+import { createInvestorSchema } from '@schemas/investor.schema.js';
 
 export function createInvestorRouter(): Router {
   const router = Router();

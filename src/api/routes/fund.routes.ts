@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { container } from '../../loaders/ContainerLoader.js';
-import { FundController } from '../controllers/fund.controller.js';
-import { validateBody, validateParams } from '../middlewares/validate.js';
-import { createFundSchema, updateFundSchema, fundParamsSchema } from '../schemas/fund.schema.js';
+import { container } from '@loaders/ContainerLoader.js';
+import { FundController } from '@controllers/fund.controller.js';
+import { validateBody, validateParams } from '@middlewares/validate.js';
+import { createFundSchema, updateFundSchema, fundParamsSchema } from '@schemas/fund.schema.js';
 
 export function createFundRouter(): Router {
   const router = Router();

@@ -1,11 +1,11 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { Request, Response, NextFunction } from 'express';
-import { InvestmentController } from '../investment.controller.js';
-import { IInvestmentService } from '../../../services/interfaces/investment.service.interface.js';
-import { FundNotFoundError, InfrastructureError, InvestorNotFoundError } from '../../../errors/domain-errors.js';
-import { Result } from '../../../lib/result.js';
-import { InvestmentResponseDto } from '../../dtos/investment.dto.js';
-import { PaginatedResponse } from '../../../lib/pagination.js';
+import { InvestmentController } from '@controllers/investment.controller.js';
+import { IInvestmentService } from '@services/interfaces/investment.service.interface.js';
+import { FundNotFoundError, InfrastructureError, InvestorNotFoundError } from '@errors/domain-errors.js';
+import { Result } from '@lib/result.js';
+import { InvestmentResponseDto } from '@dtos/investment.dto.js';
+import { PaginatedResponse } from '@lib/pagination.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

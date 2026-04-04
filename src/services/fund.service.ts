@@ -1,17 +1,17 @@
 import { injectable, inject } from 'tsyringe';
-import { IFundService } from './interfaces/fund.service.interface.js';
-import { IFundRepository } from '../database/repositories/interfaces/fund-repository.interface.js';
-import { FundResponseDto, toFundResponse, toFundResponseList } from '../api/dtos/fund.dto.js';
-import { buildPaginatedResponse, PaginatedResponse, PaginationParams } from '../lib/pagination.js';
-import { Result } from '../lib/result.js';
+import { IFundService } from '@services/interfaces/fund.service.interface.js';
+import { IFundRepository } from '@db/repositories/interfaces/fund-repository.interface.js';
+import { FundResponseDto, toFundResponse, toFundResponseList } from '@dtos/fund.dto.js';
+import { buildPaginatedResponse, PaginatedResponse, PaginationParams } from '@lib/pagination.js';
+import { Result } from '@lib/result.js';
 import {
   DomainError,
   FundNotFoundError,
   ValidationError,
   InfrastructureError,
-} from '../errors/domain-errors.js';
-import { TOKENS } from '../constants/tokens.js';
-import { CreateFundInput, UpdateFundInput } from '../api/schemas/fund.schema.js';
+} from '@errors/domain-errors.js';
+import { TOKENS } from '@constants/tokens.js';
+import { CreateFundInput, UpdateFundInput } from '@schemas/fund.schema.js';
 
 function isPrismaUniqueViolation(err: unknown): boolean {
   return (

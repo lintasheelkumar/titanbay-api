@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { injectable, inject } from 'tsyringe';
-import { IFundService } from '../../services/interfaces/fund.service.interface.js';
-import { createFundSchema, updateFundSchema, fundParamsSchema } from '../schemas/fund.schema.js';
-import { paginationSchema } from '../schemas/pagination.schema.js';
-import { TOKENS } from '../../constants/tokens.js';
+import { IFundService } from '@services/interfaces/fund.service.interface.js';
+import { createFundSchema, updateFundSchema, fundParamsSchema } from '@schemas/fund.schema.js';
+import { paginationSchema } from '@schemas/pagination.schema.js';
+import { TOKENS } from '@constants/tokens.js';
 
 @injectable()
 export class FundController {

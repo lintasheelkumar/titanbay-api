@@ -1,11 +1,11 @@
-import { FundResponseDto } from "../../api/dtos/fund.dto";
-import { CreateFundInput, UpdateFundInput } from "../../api/schemas/fund.schema";
-import { CACHE_TTL_SECONDS, CACHE_TTL_SINGLE, CacheKeys } from "../../constants";
-import { ICacheService } from "../../lib/cache";
-import { ILogger } from "../../lib/logger";
-import { PaginatedResponse, PaginationParams } from "../../lib/pagination";
-import { Result } from "../../lib/result";
-import { IFundService } from "../interfaces/fund.service.interface";
+import { FundResponseDto } from "@dtos/fund.dto.js";
+import { CreateFundInput, UpdateFundInput } from "@schemas/fund.schema.js";
+import { CACHE_TTL_SECONDS, CACHE_TTL_SINGLE, CacheKeys } from "@constants/index.js";
+import { ICacheService } from "@lib/cache.js";
+import { ILogger } from "@lib/logger.js";
+import { PaginatedResponse, PaginationParams } from "@lib/pagination.js";
+import { Result } from "@lib/result.js";
+import { IFundService } from "@services/interfaces/fund.service.interface.js";
 
 
 export class CachingFundService implements IFundService {

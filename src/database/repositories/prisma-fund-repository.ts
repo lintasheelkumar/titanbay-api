@@ -1,9 +1,9 @@
 import { PrismaClient, FundStatus } from '@prisma/client';
 import { inject, injectable } from 'tsyringe';
-import { IFundRepository } from './interfaces/fund-repository.interface.js';
-import { PaginationParams } from '../../lib/pagination.js';
-import { CreateFundInput, UpdateFundInput } from '../../api/schemas/fund.schema.js';
-import { TOKENS } from '../../constants/tokens.js';
+import { IFundRepository } from '@db/repositories/interfaces/fund-repository.interface.js';
+import { PaginationParams } from '@lib/pagination.js';
+import { CreateFundInput, UpdateFundInput } from '@schemas/fund.schema.js';
+import { TOKENS } from '@constants/tokens.js';
 
 @injectable()
 export class PrismaFundRepository implements IFundRepository {

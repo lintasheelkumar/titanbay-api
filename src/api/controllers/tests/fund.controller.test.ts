@@ -1,11 +1,11 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { Request, Response, NextFunction } from 'express';
-import { FundController } from '../fund.controller.js';
-import { IFundService } from '../../../services/interfaces/fund.service.interface.js';
-import { FundNotFoundError, InfrastructureError, ValidationError } from '../../../errors/domain-errors.js';
-import { Result } from '../../../lib/result.js';
-import { FundResponseDto } from '../../dtos/fund.dto.js';
-import { PaginatedResponse } from '../../../lib/pagination.js';
+import { FundController } from '@controllers/fund.controller.js';
+import { IFundService } from '@services/interfaces/fund.service.interface.js';
+import { FundNotFoundError, InfrastructureError, ValidationError } from '@errors/domain-errors.js';
+import { Result } from '@lib/result.js';
+import { FundResponseDto } from '@dtos/fund.dto.js';
+import { PaginatedResponse } from '@lib/pagination.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

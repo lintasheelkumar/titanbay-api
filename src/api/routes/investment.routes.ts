@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { container } from '../../loaders/ContainerLoader.js';
-import { InvestmentController } from '../controllers/investment.controller.js';
-import { validateBody, validateParams } from '../middlewares/validate.js';
-import { createInvestmentSchema, fundInvestmentsParamsSchema } from '../schemas/investment.schema.js';
+import { container } from '@loaders/ContainerLoader.js';
+import { InvestmentController } from '@controllers/investment.controller.js';
+import { validateBody, validateParams } from '@middlewares/validate.js';
+import { createInvestmentSchema, fundInvestmentsParamsSchema } from '@schemas/investment.schema.js';
 
 export function createInvestmentRouter(): Router {
   const router = Router({ mergeParams: true });

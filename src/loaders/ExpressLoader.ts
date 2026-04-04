@@ -1,7 +1,7 @@
 import express, { Express } from 'express';
-import { createRouter } from '../api/routes/index.js';
-import { errorHandler } from '../api/middlewares/errorHandler.js';
-import { notFound } from '../api/middlewares/notFound.js';
+import { createRouter } from '@routes/index.js';
+import { errorHandler } from '@middlewares/errorHandler.js';
+import { notFound } from '@middlewares/notFound.js';
 
 export function loadExpress(app: Express) {
   app.use(express.json());

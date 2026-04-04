@@ -1,39 +1,39 @@
 import { container } from 'tsyringe';
 import { PrismaClient } from '@prisma/client';
 
-import { TOKENS } from '../constants/tokens.js';
+import { TOKENS } from '@constants/tokens.js';
 
 // Infrastructure
-import prisma from '../database/PrismaClient.js';
-import { NodeCacheService, ICacheService } from '../lib/cache.js';
-import { PinoLogger, ILogger } from '../lib/logger.js';
+import prisma from '@db/PrismaClient.js';
+import { NodeCacheService, ICacheService } from '@lib/cache.js';
+import { PinoLogger, ILogger } from '@lib/logger.js';
 
 // Repositories
-import { PrismaFundRepository } from '../database/repositories/prisma-fund-repository.js';
-import { PrismaInvestorRepository } from '../database/repositories/prisma-investor-repository.js';
-import { PrismaInvestmentRepository } from '../database/repositories/prisma-investment-repository.js';
+import { PrismaFundRepository } from '@db/repositories/prisma-fund-repository.js';
+import { PrismaInvestorRepository } from '@db/repositories/prisma-investor-repository.js';
+import { PrismaInvestmentRepository } from '@db/repositories/prisma-investment-repository.js';
 
 // Core services
-import { FundService } from '../services/fund.service.js';
-import { InvestorService } from '../services/investor.service.js';
-import { InvestmentService } from '../services/investment.service.js';
+import { FundService } from '@services/fund.service.js';
+import { InvestorService } from '@services/investor.service.js';
+import { InvestmentService } from '@services/investment.service.js';
 
 // Decorators
-import { CachingFundService } from '../services/decorators/caching-fund.service.js';
-import { LoggingFundService } from '../services/decorators/logging-fund.service.js';
-import { CachingInvestorService } from '../services/decorators/caching-investor.service.js';
-import { LoggingInvestorService } from '../services/decorators/logging-investor.service.js';
-import { CachingInvestmentService } from '../services/decorators/caching-investment.service.js';
-import { LoggingInvestmentService } from '../services/decorators/logging-investment.service.js';
+import { CachingFundService } from '@services/decorators/caching-fund.service.js';
+import { LoggingFundService } from '@services/decorators/logging-fund.service.js';
+import { CachingInvestorService } from '@services/decorators/caching-investor.service.js';
+import { LoggingInvestorService } from '@services/decorators/logging-investor.service.js';
+import { CachingInvestmentService } from '@services/decorators/caching-investment.service.js';
+import { LoggingInvestmentService } from '@services/decorators/logging-investment.service.js';
 
 // Controllers
-import { FundController } from '../api/controllers/fund.controller.js';
-import { InvestorController } from '../api/controllers/investor.controller.js';
-import { InvestmentController } from '../api/controllers/investment.controller.js';
+import { FundController } from '@controllers/fund.controller.js';
+import { InvestorController } from '@controllers/investor.controller.js';
+import { InvestmentController } from '@controllers/investment.controller.js';
 
-import { IFundService } from '../services/interfaces/fund.service.interface.js';
-import { IInvestorService } from '../services/interfaces/investor.service.interface.js';
-import { IInvestmentService } from '../services/interfaces/investment.service.interface.js';
+import { IFundService } from '@services/interfaces/fund.service.interface.js';
+import { IInvestorService } from '@services/interfaces/investor.service.interface.js';
+import { IInvestmentService } from '@services/interfaces/investment.service.interface.js';
 
 export function loadContainer() {
   // ── Infrastructure ──────────────────────────────────────────────────────────

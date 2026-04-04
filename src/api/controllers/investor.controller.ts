@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { injectable, inject } from 'tsyringe';
-import { IInvestorService } from '../../services/interfaces/investor.service.interface.js';
-import { createInvestorSchema } from '../schemas/investor.schema.js';
-import { paginationSchema } from '../schemas/pagination.schema.js';
-import { TOKENS } from '../../constants/tokens.js';
+import { IInvestorService } from '@services/interfaces/investor.service.interface.js';
+import { createInvestorSchema } from '@schemas/investor.schema.js';
+import { paginationSchema } from '@schemas/pagination.schema.js';
+import { TOKENS } from '@constants/tokens.js';
 
 @injectable()
 export class InvestorController {

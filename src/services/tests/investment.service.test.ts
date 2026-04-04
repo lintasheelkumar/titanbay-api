@@ -1,13 +1,13 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { InvestmentService } from '../investment.service.js';
-import { IInvestmentRepository } from '../../database/repositories/interfaces/investment-repository.interface.js';
-import { IFundRepository } from '../../database/repositories/interfaces/fund-repository.interface.js';
-import { IInvestorRepository } from '../../database/repositories/interfaces/investor-repository.interface.js';
+import { InvestmentService } from '@services/investment.service.js';
+import { IInvestmentRepository } from '@db/repositories/interfaces/investment-repository.interface.js';
+import { IFundRepository } from '@db/repositories/interfaces/fund-repository.interface.js';
+import { IInvestorRepository } from '@db/repositories/interfaces/investor-repository.interface.js';
 import {
   FundNotFoundError,
   InfrastructureError,
   InvestorNotFoundError,
-} from '../../errors/domain-errors.js';
+} from '@errors/domain-errors.js';
 import { Investment, Investor, InvestorType } from '@prisma/client';
 
 // ── Helpers ────────────────────────────────────────────────────────────────

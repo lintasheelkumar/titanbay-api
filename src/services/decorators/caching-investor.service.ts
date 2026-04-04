@@ -1,11 +1,11 @@
-import { InvestorResponseDto } from "../../api/dtos/investor.dto";
-import { CreateInvestorInput } from "../../api/schemas/investor.schema";
-import { CACHE_TTL_SECONDS, CacheKeys } from "../../constants";
-import { ICacheService } from "../../lib/cache";
-import { ILogger } from "../../lib/logger";
-import { PaginatedResponse, PaginationParams } from "../../lib/pagination";
-import { Result } from "../../lib/result";
-import { IInvestorService } from "../interfaces/investor.service.interface";
+import { InvestorResponseDto } from "@dtos/investor.dto.js";
+import { CreateInvestorInput } from "@schemas/investor.schema.js";
+import { CACHE_TTL_SECONDS, CacheKeys } from "@constants/index.js";
+import { ICacheService } from "@lib/cache.js";
+import { ILogger } from "@lib/logger.js";
+import { PaginatedResponse, PaginationParams } from "@lib/pagination.js";
+import { Result } from "@lib/result.js";
+import { IInvestorService } from "@services/interfaces/investor.service.interface.js";
 
 
 export class CachingInvestorService implements IInvestorService {

@@ -1,8 +1,8 @@
 import express from 'express';
-import { loadPrisma } from './loaders/PrismaLoader.js';
-import { loadContainer } from './loaders/ContainerLoader.js';
-import { loadExpress } from './loaders/ExpressLoader.js';
-import { loadSwagger } from './loaders/SwaggerLoader.js';
+import { loadPrisma } from '@loaders/PrismaLoader.js';
+import { loadContainer } from '@loaders/ContainerLoader.js';
+import { loadExpress } from '@loaders/ExpressLoader.js';
+import { loadSwagger } from '@loaders/SwaggerLoader.js';
 
 // Build the Express app synchronously.
 // Swagger and health must be registered before loadExpress(), which appends notFound + errorHandler.

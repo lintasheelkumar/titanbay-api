@@ -1,9 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'tsyringe';
-import { IInvestmentRepository } from './interfaces/investment-repository.interface.js';
-import { PaginationParams } from '../../lib/pagination.js';
-import { CreateInvestmentInput } from '../../api/schemas/investment.schema.js';
-import { TOKENS } from '../../constants/tokens.js';
+import { IInvestmentRepository } from '@db/repositories/interfaces/investment-repository.interface.js';
+import { PaginationParams } from '@lib/pagination.js';
+import { CreateInvestmentInput } from '@schemas/investment.schema.js';
+import { TOKENS } from '@constants/tokens.js';
 
 @injectable()
 export class PrismaInvestmentRepository implements IInvestmentRepository {

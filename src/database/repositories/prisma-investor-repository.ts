@@ -1,9 +1,9 @@
 import { PrismaClient, InvestorType } from '@prisma/client';
 import { inject, injectable } from 'tsyringe';
-import { IInvestorRepository } from './interfaces/investor-repository.interface.js';
-import { PaginationParams } from '../../lib/pagination.js';
-import { CreateInvestorInput } from '../../api/schemas/investor.schema.js';
-import { TOKENS } from '../../constants/tokens.js';
+import { IInvestorRepository } from '@db/repositories/interfaces/investor-repository.interface.js';
+import { PaginationParams } from '@lib/pagination.js';
+import { CreateInvestorInput } from '@schemas/investor.schema.js';
+import { TOKENS } from '@constants/tokens.js';
 
 const INVESTOR_TYPE_MAP: Record<string, InvestorType> = {
   Individual: InvestorType.Individual,

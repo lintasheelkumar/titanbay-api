@@ -1,7 +1,7 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { FundService } from '../fund.service.js';
-import { IFundRepository } from '../../database/repositories/interfaces/fund-repository.interface.js';
-import { FundNotFoundError, InfrastructureError, ValidationError } from '../../errors/domain-errors.js';
+import { FundService } from '@services/fund.service.js';
+import { IFundRepository } from '@db/repositories/interfaces/fund-repository.interface.js';
+import { FundNotFoundError, InfrastructureError, ValidationError } from '@errors/domain-errors.js';
 import { Fund, FundStatus } from '@prisma/client';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
