@@ -53,7 +53,7 @@ export class FundService implements IFundService {
       return Result.ok(toFundResponse(fund));
     } catch (err) {
       if (isPrismaUniqueViolation(err)) {
-        return Result.fail(new ValidationError('A fund with this name already exists'));
+        return Result.fail(new ValidationError('A fund with this name and vintage year already exists'));
       }
       return Result.fail(new InfrastructureError('Failed to create fund', err as Error));
     }
@@ -69,6 +69,9 @@ export class FundService implements IFundService {
       const fund = await this.fundRepo.update(id, updateData);
       return Result.ok(toFundResponse(fund));
     } catch (err) {
+      if (isPrismaUniqueViolation(err)) {
+        return Result.fail(new ValidationError('A fund with this name and vintage year already exists'));
+      }
       return Result.fail(new InfrastructureError('Failed to update fund', err as Error));
     }
   }

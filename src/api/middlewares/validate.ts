@@ -25,6 +25,17 @@ export function validateParams(schema: ZodSchema) {
   };
 }
 
+export function validateQuery(schema: ZodSchema) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      next(fromZodError(result.error));
+      return;
+    }
+    next();
+  };
+}
+
 function fromZodError(error: ZodError) {
   const details = error.errors.map((e) => ({
     field: e.path.join('.'),

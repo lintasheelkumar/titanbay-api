@@ -22,19 +22,27 @@ export class CachingInvestmentService implements IInvestmentService {
     const key = CacheKeys.INVESTMENTS_BY_FUND(fundId, params.page, params.limit);
     try {
       const cached = this.cache.get<PaginatedResponse<InvestmentResponseDto>>(key);
-      if (cached && Array.isArray(cached.data)) return Result.ok(cached);
+      if (cached && Array.isArray(cached.data)){
+        this.logger.info("Reading investments data from cache");
+        return Result.ok(cached);
+      }
     } catch (err) {
-      this.logger.debug('Cache read error — falling through to inner service', { key, err });
+      this.logger.warn('Cache read error — falling through to inner service', { key, err });
     }
 
+    this.logger.info("Calling investment service for fetching investments from db")
     const result = await this.investmentService.findByFund(fundId, params);
     if (result.isOk) this.cache.set(key, result.value, CACHE_TTL_SECONDS);
     return result;
   }
 
   async create(fundId: string, data: CreateInvestmentInput): Promise<Result<InvestmentResponseDto>> {
+    this.logger.info("Calling investment service to create investment")
     const result = await this.investmentService.create(fundId, data);
-    if (result.isOk) this.cache.invalidateByPrefix(`${CacheKeys.INVESTMENTS_BY_FUND_PREFIX}:${fundId}`);
+    if (result.isOk) {
+      this.cache.invalidateByPrefix(`${CacheKeys.INVESTMENTS_BY_FUND_PREFIX}:${fundId}`);
+      this.logger.warn("Investments cache invalidated after create", { fundId });
+    }
     return result;
   }
 }

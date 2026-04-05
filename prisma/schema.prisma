@@ -17,6 +17,7 @@ model Fund {
   created_at      DateTime     @default(now())
   investments     Investment[]
 
+  @@unique([name, vintage_year])
   @@map("funds")
 }
 

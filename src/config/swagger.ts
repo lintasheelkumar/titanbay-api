@@ -43,9 +43,8 @@ const options: swaggerJsdoc.Options = {
         },
         UpdateFundRequest: {
           type: 'object',
-          required: ['id', 'name', 'vintage_year', 'target_size_usd', 'status'],
+          required: ['name', 'vintage_year', 'target_size_usd', 'status'],
           properties: {
-            id:              { type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000' },
             name:            { type: 'string', example: 'Titanbay Growth Fund I' },
             vintage_year:    { type: 'integer', example: 2024 },
             target_size_usd: { type: 'number', format: 'double', example: 300000000.00 },

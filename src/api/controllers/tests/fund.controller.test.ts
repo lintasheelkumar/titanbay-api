@@ -1,5 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { Request, Response, NextFunction } from 'express';
+import { FundStatus } from '@prisma/client';
 import { FundController } from '@controllers/fund.controller.js';
 import { IFundService } from '@services/interfaces/fund.service.interface.js';
 import { FundNotFoundError, InfrastructureError, ValidationError } from '@errors/domain-errors.js';
@@ -40,7 +41,7 @@ const FUND_DTO: FundResponseDto = {
   name: 'Alpha Fund',
   vintage_year: 2022,
   target_size_usd: 1_000_000,
-  status: 'Fundraising' as any,
+  status: FundStatus.Fundraising,
   created_at: '2024-01-01T00:00:00.000Z',
 };
 

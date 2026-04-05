@@ -2,7 +2,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import { FundService } from '@services/fund.service.js';
 import { IFundRepository } from '@db/repositories/interfaces/fund-repository.interface.js';
 import { FundNotFoundError, InfrastructureError, ValidationError } from '@errors/domain-errors.js';
-import { Fund, FundStatus } from '@prisma/client';
+import { Fund, FundStatus, Prisma } from '@prisma/client';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ function makeFund(overrides: Partial<Fund> = {}): Fund {
     id: 'fund-1',
     name: 'Alpha Fund',
     vintage_year: 2022,
-    target_size_usd: { toNumber: () => 1_000_000 } as any,
+    target_size_usd: new Prisma.Decimal(1_000_000),
     status: FundStatus.Fundraising,
     created_at: new Date('2024-01-01T00:00:00.000Z'),
     ...overrides,
@@ -158,7 +158,7 @@ describe('FundService.create', () => {
     expect(result.isErr).toBe(true);
     expect(result.error).toBeInstanceOf(ValidationError);
     expect(result.error.statusCode).toBe(400);
-    expect(result.error.message).toMatch(/already exists/);
+    expect(result.error.message).toMatch(/name and vintage year already exists/);
   });
 
   it('returns InfrastructureError for non-unique DB errors', async () => {
@@ -193,7 +193,7 @@ describe('FundService.update', () => {
 
     expect(result.isOk).toBe(true);
     expect(result.value.name).toBe('Updated Fund');
-    const { id, ...updateData } = input;
+    const { id: _id, ...updateData } = input;
     expect(repo.update).toHaveBeenCalledWith('fund-1', updateData);
   });
 
@@ -206,6 +206,19 @@ describe('FundService.update', () => {
     expect(result.isErr).toBe(true);
     expect(result.error).toBeInstanceOf(FundNotFoundError);
     expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('returns ValidationError on Prisma unique-constraint violation (P2002)', async () => {
+    const repo = makeMockRepo();
+    repo.exists.mockResolvedValue(true);
+    repo.update.mockRejectedValue({ code: 'P2002' });
+
+    const result = await new FundService(repo).update(input);
+
+    expect(result.isErr).toBe(true);
+    expect(result.error).toBeInstanceOf(ValidationError);
+    expect(result.error.statusCode).toBe(400);
+    expect(result.error.message).toMatch(/name and vintage year already exists/);
   });
 
   it('returns InfrastructureError when the repository update throws', async () => {

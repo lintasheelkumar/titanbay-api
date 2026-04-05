@@ -24,9 +24,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('GET /funds/:fund_id/investments', () => {
+describe('GET /fund/:fund_id/investments', () => {
   it('returns empty paginated response for fund with no investments', async () => {
-    const res = await request(app).get(`/funds/${fundId}/investments`);
+    const res = await request(app).get(`/fund/${fundId}/investments`);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
     expect(res.body.total).toBe(0);
@@ -36,33 +36,33 @@ describe('GET /funds/:fund_id/investments', () => {
   });
 
   it('returns 404 for non-existent fund', async () => {
-    const res = await request(app).get('/funds/00000000-0000-0000-0000-000000000000/investments');
+    const res = await request(app).get('/fund/00000000-0000-0000-0000-000000000000/investments');
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
   });
 
   it('returns 400 for invalid fund UUID format', async () => {
-    const res = await request(app).get('/funds/not-a-uuid/investments');
+    const res = await request(app).get('/fund/not-a-uuid/investments');
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('respects page and limit query params', async () => {
-    const res = await request(app).get(`/funds/${fundId}/investments?page=1&limit=5`);
+    const res = await request(app).get(`/fund/${fundId}/investments?page=1&limit=5`);
     expect(res.status).toBe(200);
     expect(res.body.page).toBe(1);
     expect(res.body.limit).toBe(5);
   });
 });
 
-describe('POST /funds/:fund_id/investments', () => {
+describe('POST /fund/:fund_id/investments', () => {
   beforeEach(async () => {
     await prisma.investment.deleteMany();
   });
 
   it('creates an investment with valid data', async () => {
     const res = await request(app)
-      .post(`/funds/${fundId}/investments`)
+      .post(`/fund/${fundId}/investments`)
       .send({
         investor_id: investorId,
         amount_usd: 5000000,
@@ -78,10 +78,10 @@ describe('POST /funds/:fund_id/investments', () => {
 
   it('returns the new investment in subsequent GET', async () => {
     await request(app)
-      .post(`/funds/${fundId}/investments`)
+      .post(`/fund/${fundId}/investments`)
       .send({ investor_id: investorId, amount_usd: 1000000, investment_date: '2024-06-01' });
 
-    const res = await request(app).get(`/funds/${fundId}/investments`);
+    const res = await request(app).get(`/fund/${fundId}/investments`);
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.total).toBe(1);
@@ -89,7 +89,7 @@ describe('POST /funds/:fund_id/investments', () => {
 
   it('returns 404 for non-existent fund', async () => {
     const res = await request(app)
-      .post('/funds/00000000-0000-0000-0000-000000000000/investments')
+      .post('/fund/00000000-0000-0000-0000-000000000000/investments')
       .send({ investor_id: investorId, amount_usd: 1000000, investment_date: '2024-06-01' });
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
@@ -97,7 +97,7 @@ describe('POST /funds/:fund_id/investments', () => {
 
   it('returns 404 for non-existent investor', async () => {
     const res = await request(app)
-      .post(`/funds/${fundId}/investments`)
+      .post(`/fund/${fundId}/investments`)
       .send({
         investor_id: '00000000-0000-0000-0000-000000000000',
         amount_usd: 1000000,
@@ -109,7 +109,7 @@ describe('POST /funds/:fund_id/investments', () => {
 
   it('returns 400 for invalid date format', async () => {
     const res = await request(app)
-      .post(`/funds/${fundId}/investments`)
+      .post(`/fund/${fundId}/investments`)
       .send({ investor_id: investorId, amount_usd: 1000000, investment_date: '15-03-2024' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
@@ -117,7 +117,7 @@ describe('POST /funds/:fund_id/investments', () => {
 
   it('returns 400 for negative amount', async () => {
     const res = await request(app)
-      .post(`/funds/${fundId}/investments`)
+      .post(`/fund/${fundId}/investments`)
       .send({ investor_id: investorId, amount_usd: -1000, investment_date: '2024-06-01' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
@@ -125,7 +125,7 @@ describe('POST /funds/:fund_id/investments', () => {
 
   it('returns 400 for invalid investor_id UUID', async () => {
     const res = await request(app)
-      .post(`/funds/${fundId}/investments`)
+      .post(`/fund/${fundId}/investments`)
       .send({ investor_id: 'bad-uuid', amount_usd: 1000000, investment_date: '2024-06-01' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
@@ -133,7 +133,7 @@ describe('POST /funds/:fund_id/investments', () => {
 
   it('returns 400 for invalid fund UUID in path', async () => {
     const res = await request(app)
-      .post('/funds/bad-uuid/investments')
+      .post('/fund/bad-uuid/investments')
       .send({ investor_id: investorId, amount_usd: 1000000, investment_date: '2024-06-01' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');

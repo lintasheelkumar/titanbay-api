@@ -19,19 +19,27 @@ export class CachingInvestorService implements IInvestorService {
     const key = CacheKeys.INVESTORS_LIST(params.page, params.limit);
     try {
       const cached = this.cache.get<PaginatedResponse<InvestorResponseDto>>(key);
-      if (cached && Array.isArray(cached.data)) return Result.ok(cached);
+      if (cached && Array.isArray(cached.data)){
+        this.logger.info("Reading investors data from cache");
+        return Result.ok(cached);
+      }
     } catch (err) {
-      this.logger.debug('Cache read error — falling through to inner service', { key, err });
+      this.logger.warn('Cache read error — falling through to inner service', { key, err });
     }
 
+    this.logger.info("Calling investor service for fetching investors from db")
     const result = await this.investorService.findAll(params);
     if (result.isOk) this.cache.set(key, result.value, CACHE_TTL_SECONDS);
     return result;
   }
 
   async create(data: CreateInvestorInput): Promise<Result<InvestorResponseDto>> {
+    this.logger.info("Calling investor service to create investor")
     const result = await this.investorService.create(data);
-    if (result.isOk) this.cache.invalidateByPrefix(CacheKeys.INVESTORS_LIST_PREFIX);
+    if (result.isOk) {
+      this.cache.invalidateByPrefix(CacheKeys.INVESTORS_LIST_PREFIX);
+      this.logger.info("Investors list cache invalidated after create");
+    }
     return result;
   }
 }

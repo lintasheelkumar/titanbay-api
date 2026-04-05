@@ -1,4 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
+import { Prisma } from '@prisma/client';
 import { InvestmentService } from '@services/investment.service.js';
 import { IInvestmentRepository } from '@db/repositories/interfaces/investment-repository.interface.js';
 import { IFundRepository } from '@db/repositories/interfaces/fund-repository.interface.js';
@@ -17,7 +18,7 @@ function makeInvestment(overrides: Partial<Investment> = {}): Investment {
     id: 'inv-1',
     fund_id: 'fund-1',
     investor_id: 'investor-1',
-    amount_usd: { toNumber: () => 250_000 } as any,
+    amount_usd: new Prisma.Decimal(250_000),
     investment_date: new Date('2024-06-15T00:00:00.000Z'),
     ...overrides,
   };
