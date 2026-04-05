@@ -10,7 +10,7 @@ cd titanbay-api
 docker-compose up --build
 ```
 
-The API will be available at `http://localhost:3000`.
+The API Docs will be available at `http://localhost:3000/api-docs`.
 Postgres runs on port 5432.
 
 ## Alternative Setup (without Docker)
