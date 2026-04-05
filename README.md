@@ -37,6 +37,44 @@ npm run dev
 | GET    | `/funds/:fund_id/investments` | List investments for a fund |
 | POST   | `/funds/:fund_id/investments` | Create an investment |
 
+### Example: Create a Fund
+
+**Request**
+```bash
+curl -X POST http://localhost:3000/funds \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Alpha Fund III",
+    "vintage_year": 2025,
+    "target_size_usd": 50000000,
+    "status": "Fundraising"
+  }'
+```
+
+`status` is optional and defaults to `Fundraising`. Valid values: `Fundraising`, `Investing`, `Closed`.
+
+**Response** `201 Created`
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "Alpha Fund III",
+  "vintage_year": 2025,
+  "target_size_usd": 50000000,
+  "status": "Fundraising",
+  "created_at": "2025-04-05T10:00:00.000Z"
+}
+```
+
+**Duplicate name + year** `400 Bad Request`
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "A fund with this name and vintage year already exists"
+  }
+}
+```
+
 ### Error Response Format
 
 All errors return a consistent structure:
@@ -133,7 +171,7 @@ PostgreSQL `NUMERIC(18,2)` via Prisma `Decimal` avoids floating-point precision 
 Prevents enumeration attacks, matches the spec, and is natively supported by Postgres.
 
 **Consistent error format.**
-Every error (validation, not found, conflict, internal) returns the same JSON envelope with a machine-readable `code`, making client error handling straightforward.
+Every error (validation, not found, conflict, internal) returns the same JSON envelope with a machine-readable `code`, making client error handling straightforward. Database unique-constraint violations surface as Prisma error code `P2002`; the service layer catches these and converts them into a `ValidationError` (HTTP 400) so raw database errors never reach the client.
 
 **`bypass_validation` not honoured (by design).**
 The transaction spec includes a `bypass_validation` flag. This field is intentionally ignored — skipping server-side validation based on a client-supplied flag is a security anti-pattern. This is a deliberate decision, not an oversight.

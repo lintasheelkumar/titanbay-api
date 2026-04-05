@@ -158,7 +158,7 @@ describe('FundService.create', () => {
     expect(result.isErr).toBe(true);
     expect(result.error).toBeInstanceOf(ValidationError);
     expect(result.error.statusCode).toBe(400);
-    expect(result.error.message).toMatch(/already exists/);
+    expect(result.error.message).toMatch(/name and vintage year already exists/);
   });
 
   it('returns InfrastructureError for non-unique DB errors', async () => {
@@ -206,6 +206,19 @@ describe('FundService.update', () => {
     expect(result.isErr).toBe(true);
     expect(result.error).toBeInstanceOf(FundNotFoundError);
     expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('returns ValidationError on Prisma unique-constraint violation (P2002)', async () => {
+    const repo = makeMockRepo();
+    repo.exists.mockResolvedValue(true);
+    repo.update.mockRejectedValue({ code: 'P2002' });
+
+    const result = await new FundService(repo).update(input);
+
+    expect(result.isErr).toBe(true);
+    expect(result.error).toBeInstanceOf(ValidationError);
+    expect(result.error.statusCode).toBe(400);
+    expect(result.error.message).toMatch(/name and vintage year already exists/);
   });
 
   it('returns InfrastructureError when the repository update throws', async () => {
