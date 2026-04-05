@@ -7,7 +7,6 @@ RESTful API for managing private market funds, investors, and investments.
 ```bash
 git clone <repo-url>
 cd titanbay-api
-cp .env.example .env
 docker-compose up --build
 ```
 
