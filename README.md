@@ -141,37 +141,143 @@ Each test suite resets the relevant tables before running.
 ---
 
 **Layered architecture with Decorator pattern for cross-cutting concerns.**
-Routes → Controllers → Services → Repositories → Prisma. Logging and caching are applied as decorators that wrap the core service — the controller only knows the `IFundService` interface and has no awareness of either concern. This keeps business logic clean and makes each layer independently testable.
+
+Every HTTP request passes through a fixed sequence of layers:
+
+```
+HTTP Client
+    → Express Router       (matches path/method, runs validation middleware)
+    → Controller           (parses request, calls service, maps Result → HTTP response)
+    → CachingXxxService    (decorator: checks/writes cache, delegates on miss)
+    → LoggingXxxService    (decorator: times the call, logs outcome + slow-query warnings)
+    → Core XxxService      (pure business logic — domain rules, repository calls)
+    → Repository           (interface — abstracts all database access)
+    → Prisma               (ORM — SQL generation, connection pooling)
+```
+
+Controllers depend only on the `IFundService` interface. They have no idea whether caching or logging exist — those concerns are invisible to them. The decorators are stacked in `ContainerLoader.ts` — the single file you edit to add, remove, or reorder a concern. Each layer can be tested in isolation by replacing its inner dependency with a plain mock.
 
 **Repository pattern.**
-All database access sits behind interfaces (`IFundRepository` etc.) with Prisma implementations injected via the DI container. Services depend on the interface, not Prisma directly, so the persistence layer is swappable and unit tests can use plain mocks.
+
+All database access is hidden behind interfaces (`IFundRepository`, `IInvestorRepository`, `IInvestmentRepository`). The interface declares what operations are available (e.g. `findById`, `create`); the Prisma implementation in `src/database/repositories/` provides the actual SQL. Services import and depend on the interface only — they never reference Prisma directly.
+
+This has two practical benefits:
+- **Testability** — unit tests pass a plain in-memory mock that satisfies the interface; no real database connection is needed.
+- **Swappability** — replacing Prisma with a different ORM means rewriting the repository class only. No service code changes.
 
 **Dependency injection (tsyringe).**
-Every dependency is registered in a single `ContainerLoader` and resolved by token. This makes the composition explicit and centralised — changing how a service is built (e.g. adding a new decorator) requires editing one file.
+
+All wiring is centralised in `src/loaders/ContainerLoader.ts`. Every class registers its dependencies against named string tokens (defined in `src/constants/tokens.ts`), and tsyringe resolves and injects them automatically at startup. The decorator stack for each service is assembled once using a factory:
+
+```ts
+// ContainerLoader.ts — the only place the decorator order is decided
+container.register<IFundService>(TOKENS.FundService, {
+  useFactory: (c) => {
+    const core   = c.resolve(TOKENS.FundServiceCore);  // pure business logic
+    const cache  = c.resolve(TOKENS.CacheService);
+    const logger = c.resolve(TOKENS.Logger);
+    // Controller receives Caching → Logging → Core (outermost first)
+    return new CachingFundService(new LoggingFundService(core, logger), cache, logger);
+  },
+});
+```
+
+Adding a new cross-cutting concern (e.g. metrics) means creating one new decorator class and updating this factory — nothing else changes.
 
 **Result monad for error handling.**
-Service methods return `Result<T, DomainError>` instead of throwing. Errors are values that propagate through every layer without try/catch noise, and controllers map them to HTTP status codes deterministically.
+
+Service methods never throw for expected failures. Instead they return a `Result<T, DomainError>` — a wrapper that holds *either* a success value *or* a typed domain error. The class (in `src/lib/result.ts`) enforces that you check which one you have before accessing either:
+
+```ts
+// Service — returns a Result, never throws for domain failures
+async findById(id: string): Promise<Result<FundResponseDto, DomainError>> {
+  const fund = await this.fundRepo.findById(id);
+  if (!fund) return Result.fail(new FundNotFoundError(id));  // error is a value
+  return Result.ok(toFundResponse(fund));
+}
+
+// Controller — reads statusCode directly from the error object; no switch needed
+const result = await this.service.findById(id);
+if (result.isErr) {
+  return res
+    .status(result.error.statusCode)
+    .json({ error: { code: result.error.code, message: result.error.message } });
+}
+return res.json(result.value);
+```
+
+Each `DomainError` subclass (`NotFoundError` → 404, `ValidationError` → 400, `DuplicateEmailError` → 409, `InfrastructureError` → 500) carries its own `statusCode` and `code` string. The controller maps errors to HTTP responses deterministically without any conditional logic.
 
 **Zod validation.**
-Request bodies and params are validated by Zod schemas before reaching controllers. Types are inferred from the same schema, so there is no duplication between the validation rule and the TypeScript type.
+
+Every incoming request is validated against a Zod schema *before* it reaches the controller. Middleware helpers (`validateBody`, `validateParams`, `validateQuery` in `src/api/middlewares/validate.ts`) call `schema.safeParse()` and forward a `ValidationError` to Express's error handler on failure — so an invalid request is rejected at the boundary and never proceeds further into the application.
+
+The same schema object is the single source of truth for the TypeScript type:
+
+```ts
+// src/api/schemas/fund.schema.ts
+export const createFundSchema = z.object({
+  name:             z.string().min(1).max(255),
+  vintage_year:     z.number().int().min(1900).max(currentYear + 5),
+  target_size_usd:  z.number().positive(),
+  status:           z.enum(['Fundraising', 'Investing', 'Closed']).optional(),
+});
+
+export type CreateFundInput = z.infer<typeof createFundSchema>;
+// ↑ TypeScript type is derived from the schema — no separate interface to maintain
+```
+
+Tightening a validation rule in the schema automatically tightens the TypeScript type with it.
 
 **In-process caching (node-cache).**
-Paginated list results are cached for 5 minutes; individual entities for 2 minutes. Cache entries are invalidated by key-prefix on any mutation. Cache writes are best-effort — a miss falls through to the database transparently.
+
+Paginated list results are cached for 5 minutes; single-entity lookups for 2 minutes. Caching is implemented entirely in the `CachingXxxService` decorator — it checks the cache first and returns immediately on a hit, without calling the inner service or touching the database. On a miss, it delegates to the inner service and writes the result to cache on success.
+
+Cache keys are namespaced by operation and parameters (e.g. `funds:list:page=1:limit=20`, `funds:id:abc-123`). On any write mutation (create or update), the decorator invalidates all keys sharing the list prefix so stale paginated pages are never served. Cache writes are best-effort — if the cache itself throws, the error is logged at `warn` level and the call falls through to the database transparently.
 
 **DTO mapping at the service boundary.**
-Prisma entities are never returned directly to callers. Each domain has a dedicated mapper (`toFundResponse` etc.) that converts DB types to serialisation-safe shapes — `Decimal` → `number`, `Date` → ISO string, enum → display string. This keeps the public API contract decoupled from the database schema.
+
+Prisma entity types (e.g. `Fund` from `@prisma/client`) contain database-native types that are unsafe to serialise directly: `Decimal` (Prisma's arbitrary-precision type for `NUMERIC` columns) does not serialise to a plain JSON number, and `Date` can serialise inconsistently. Each domain has a dedicated mapper that converts these types at the boundary:
+
+```ts
+// src/api/dtos/fund.dto.ts
+export function toFundResponse(fund: Fund): FundResponseDto {
+  return {
+    id:              fund.id,
+    name:            fund.name,
+    vintage_year:    fund.vintage_year,
+    target_size_usd: fund.target_size_usd.toNumber(),  // Decimal → plain number
+    status:          fund.status,
+    created_at:      fund.created_at.toISOString(),    // Date → ISO 8601 string
+  };
+}
+```
+
+Services always return `FundResponseDto`, never a raw Prisma `Fund`. This means the JSON contract is stable regardless of schema changes in the database, and internal or sensitive columns can never accidentally leak into responses.
 
 **Structured logging (Pino).**
-Logging is handled by a `LoggingXxxService` decorator, not HTTP middleware, so every log entry carries business context (fund id, result count, duration) rather than just request metadata. Slow queries (> 200 ms) emit an additional warning. Log level and pretty-printing are controlled via `LOG_LEVEL` and `LOG_PRETTY` env vars.
+
+Logging lives in a `LoggingXxxService` decorator, not in HTTP middleware. This means every log entry carries the *business context* of the operation — fund ID, result count, duration — rather than just the raw HTTP method and URL. For example, a `findAll` call logs `{ page, count, total, duration }`, making it immediately actionable in production.
+
+Calls that exceed 200 ms emit an additional `warn`-level slow-query entry, separate from the normal info log. Log level (`trace` / `debug` / `info` / `warn` / `error`) and output format are controlled by `LOG_LEVEL` and `LOG_PRETTY` environment variables — local development gets readable pretty-printed output; production emits structured JSON that log aggregators can parse.
 
 **Decimal for monetary values.**
-PostgreSQL `NUMERIC(18,2)` via Prisma `Decimal` avoids floating-point precision errors on large fund amounts. Serialised to `number` in JSON responses.
+
+JavaScript `number` is a 64-bit floating-point value. Representing large fund amounts such as $500,000,000.00 as floats introduces rounding errors. The database column is `NUMERIC(18,2)` — exact fixed-point arithmetic in Postgres. Prisma surfaces this as a `Decimal` type (arbitrary precision), which is only converted to a JavaScript `number` at the DTO mapping step, where a small rounding error in the final two decimal places is acceptable for JSON serialisation.
 
 **UUID primary keys.**
-Prevents enumeration attacks, matches the spec, and is natively supported by Postgres.
+
+Sequential integer IDs expose the total record count and make it trivial to scrape resources by incrementing the ID parameter. UUIDs are random 128-bit values with no sequential relationship, making enumeration attacks infeasible. Postgres supports `uuid` as a native column type and Prisma generates values automatically via `@default(uuid())` — no application-level ID generation is required.
 
 **Consistent error format.**
-Every error (validation, not found, conflict, internal) returns the same JSON envelope with a machine-readable `code`, making client error handling straightforward. Database unique-constraint violations surface as Prisma error code `P2002`; the service layer catches these and converts them into a `ValidationError` (HTTP 400) so raw database errors never reach the client.
+
+Every error response, regardless of where it originates, uses the same JSON envelope:
+
+```json
+{ "error": { "code": "NOT_FOUND", "message": "Fund with id '...' was not found" } }
+```
+
+This is enforced by the global error handler in `src/api/middlewares/errorHandler.ts`, which receives every error passed to `next(err)` and formats it using the `code` and `statusCode` already attached to each `DomainError` subclass. Database unique-constraint violations (Prisma error code `P2002`) are caught at the service layer and converted to a `ValidationError` before surfacing — raw database error messages never reach the client.
 
 **`bypass_validation` not honoured (by design).**
 The transaction spec includes a `bypass_validation` flag. This field is intentionally ignored — skipping server-side validation based on a client-supplied flag is a security anti-pattern. This is a deliberate decision, not an oversight.
@@ -179,8 +285,22 @@ The transaction spec includes a `bypass_validation` flag. This field is intentio
 
 ## Scaling Considerations
 
-- Stateless design — horizontally scalable behind a load balancer
-- Container-ready for Cloud Run / GKE deployment
-- Prisma connection pooling handles concurrent requests
-- Would add: rate limiting, API key authentication, structured request
+**What works today**
+
+- **Container-ready.** The app is fully Dockerised with a health check endpoint (`/health`) and `restart: unless-stopped`. It exposes a single port and has no startup state that would prevent running behind a load balancer or deploying to Cloud Run / GKE.
+- **Prisma connection pooling.** A single `PrismaClient` instance is created at startup and registered as a singleton in the DI container, so all requests share one connection pool. The default pool size is `(number of CPU cores × 2) + 1`. This is adequate for moderate load but should be tuned explicitly via the `connection_limit` query parameter in `DATABASE_URL` for production.
+- **Structured business-context logging.** Pino emits JSON by default, which log aggregators (Datadog, GCP Logging, etc.) can ingest and index without additional parsing.
+
+**Known limitations to address before horizontal scaling**
+
+- **In-process cache is not shared between replicas.** `node-cache` stores data in the Node.js process heap. If you run two instances, a write on instance A invalidates A's cache but B and C still serve stale data until the TTL expires (up to 5 minutes for lists). Before scaling horizontally, replace `NodeCacheService` with a shared external cache (e.g. Redis) that all instances read from and write to.
+- **No cache stampede protection.** When a hot cache entry expires, many concurrent requests will all miss simultaneously and hit the database in parallel. A Redis-based solution can use locking or probabilistic early expiry to avoid this.
+- **Shallow health check.** `GET /health` returns `{ status: "ok" }` based solely on the process being alive — it does not verify that the database is reachable. A load balancer routing traffic to an instance with a broken DB connection would see it as healthy. A deep check should attempt a lightweight Prisma query (e.g. `$queryRaw\`SELECT 1\``) and return 503 on failure.
+- **Single database instance.** The current setup has one Postgres node — a single point of failure and a write bottleneck. Production deployments should use a primary + read replica(s), with read-only queries (list, getById) routed to replicas.
+
+**Would also add before production**
+
+- Rate limiting per IP / API key (e.g. `express-rate-limit`) to prevent abuse
+- API key or JWT authentication on all non-health endpoints
+- A request correlation ID (injected as `X-Request-Id` and attached to every log entry) to trace a single request across multiple log lines
 

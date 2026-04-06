@@ -644,6 +644,87 @@ fetch data and total count in one round-trip:
    cases part of the function signature. The caller is forced to handle
    both branches. It's similar to Rust's Result or C#'s FluentResults.
 
+   What is a Result monad?
+A monad is just a fancy word for a wrapper type that carries either a success value or a failure value — and forces you to check which one you got before using it. Think of it as a box that can hold one of two things: a result, or an error.
+
+In this codebase it's defined in src/lib/result.ts:
+
+
+Result<T, E>
+// T = the success type  (e.g. FundResponseDto)
+// E = the error type    (e.g. DomainError)
+The box can be created in two ways:
+
+
+Result.ok(fund)           // success — wraps the value
+Result.fail(new FundNotFoundError(id))  // failure — wraps the error
+The problem it solves
+Without Result — the old way:
+
+
+// Service throws
+async findById(id: string): Promise<FundResponseDto> {
+  const fund = await this.fundRepo.findById(id);
+  if (!fund) throw new Error('Not found');  // 💥 thrown somewhere deep
+  return fund;
+}
+
+// Controller must catch — and guess what might have been thrown
+try {
+  const fund = await service.findById(id);
+  res.json(fund);
+} catch (err) {
+  // What kind of error? 404? 500? We don't know statically.
+  res.status(500).json({ error: 'Something went wrong' });
+}
+With Result — this project's way:
+
+
+// Service returns, never throws
+async findById(id: string): Promise<Result<FundResponseDto, DomainError>> {
+  const fund = await this.fundRepo.findById(id);
+  if (!fund) return Result.fail(new FundNotFoundError(id));  // value, not exception
+  return Result.ok(toFundResponse(fund));
+}
+See fund.service.ts:40-48.
+
+How the controller uses it
+In fund.controller.ts:23-28:
+
+
+const result = await this.service.findById(id);
+
+if (result.isErr) {
+  return res.status(result.error.statusCode)  // 404, 409, 500 — already on the error object
+             .json({ error: { code: result.error.code, message: result.error.message } });
+}
+
+return res.json(result.value);  // safe to access — we checked isErr first
+The controller doesn't need to know what might throw or catch exceptions — it just checks isErr and the error already carries its HTTP status code.
+
+The error hierarchy
+Defined in src/errors/domain-errors.ts:
+
+
+DomainError (abstract)
+├── NotFoundError         → statusCode 404, code "NOT_FOUND"
+│   ├── FundNotFoundError
+│   └── InvestorNotFoundError
+├── ValidationError       → statusCode 400, code "VALIDATION_ERROR"
+├── DuplicateEmailError   → statusCode 409, code "CONFLICT"
+└── InfrastructureError   → statusCode 500, code "INTERNAL_ERROR"
+Each error knows its own HTTP status, so the controller just reads result.error.statusCode — no switch or instanceof needed.
+
+Summary
+Concept	What it means here
+Result<T, E>	A box: either holds a value T or an error E
+Result.ok(x)	"it worked, here's the data"
+Result.fail(e)	"it failed, here's why"
+result.isErr	check before unwrapping
+result.value	the success data (safe after isErr check)
+result.error	the domain error with .statusCode and .code built in
+The key benefit: errors become plain values you pass around. No surprises, no hidden throws, and the HTTP status mapping is automatic because the error object carries it.
+
 3. "THE BUG I CAUGHT: update() PASSING id IN DATA"
    The original service did:
      const { id, ...updateData } = data;

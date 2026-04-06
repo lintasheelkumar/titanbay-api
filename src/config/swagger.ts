@@ -11,6 +11,12 @@ const options: swaggerJsdoc.Options = {
         name: 'API Support',
       },
     },
+    tags: [
+      { name: 'Funds' },
+      { name: 'Investors' },
+      { name: 'Investments' },
+      { name: 'System' },
+    ],
     servers: [
       {
         url: 'http://localhost:3000',
@@ -145,7 +151,7 @@ const options: swaggerJsdoc.Options = {
       },
     },
   },
-  apis: ['./dist/api/routes/*.js', './dist/app.js'],
+  apis: ['./dist/api/routes/*.js'],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
