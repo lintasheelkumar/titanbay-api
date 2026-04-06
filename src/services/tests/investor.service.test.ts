@@ -1,4 +1,3 @@
-import { describe, it, expect, jest } from '@jest/globals';
 import { InvestorService } from '@services/investor.service.js';
 import { IInvestorRepository } from '@db/repositories/interfaces/investor-repository.interface.js';
 import { DuplicateEmailError, InfrastructureError } from '@errors/domain-errors.js';

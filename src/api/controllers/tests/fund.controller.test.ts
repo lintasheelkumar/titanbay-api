@@ -1,4 +1,3 @@
-import { describe, it, expect, jest } from '@jest/globals';
 import { Request, Response, NextFunction } from 'express';
 import { FundStatus } from '@prisma/client';
 import { FundController } from '@controllers/fund.controller.js';

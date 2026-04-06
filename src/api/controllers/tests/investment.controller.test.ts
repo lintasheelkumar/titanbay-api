@@ -1,4 +1,3 @@
-import { describe, it, expect, jest } from '@jest/globals';
 import { Request, Response, NextFunction } from 'express';
 import { InvestmentController } from '@controllers/investment.controller.js';
 import { IInvestmentService } from '@services/interfaces/investment.service.interface.js';

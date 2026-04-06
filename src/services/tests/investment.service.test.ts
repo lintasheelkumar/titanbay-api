@@ -1,4 +1,3 @@
-import { describe, it, expect, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 import { InvestmentService } from '@services/investment.service.js';
 import { IInvestmentRepository } from '@db/repositories/interfaces/investment-repository.interface.js';

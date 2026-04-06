@@ -265,6 +265,22 @@ Calls that exceed 200 ms emit an additional `warn`-level slow-query entry, separ
 
 JavaScript `number` is a 64-bit floating-point value. Representing large fund amounts such as $500,000,000.00 as floats introduces rounding errors. The database column is `NUMERIC(18,2)` — exact fixed-point arithmetic in Postgres. Prisma surfaces this as a `Decimal` type (arbitrary precision), which is only converted to a JavaScript `number` at the DTO mapping step, where a small rounding error in the final two decimal places is acceptable for JSON serialisation.
 
+**Currency handling (known limitation).**
+
+All monetary fields currently encode the currency in the field name (`target_size_usd`, `amount_usd`). This works for a USD-only system but does not scale to multi-currency: adding EUR support would require new fields or a breaking API change. The idiomatic approach is a structured money object:
+
+```json
+{
+  "amount": {
+    "value": "75000000.00",
+    "currency": "USD",
+    "precision": "exact"
+  }
+}
+```
+
+This keeps the field name stable regardless of currency, makes the currency explicit to API consumers, and allows the `precision` hint to communicate whether the value is exact (from `NUMERIC`) or rounded. This change was not made — the current spec uses flat `_usd` fields — but it is the recommended shape for any multi-currency extension.
+
 **UUID primary keys.**
 
 Sequential integer IDs expose the total record count and make it trivial to scrape resources by incrementing the ID parameter. UUIDs are random 128-bit values with no sequential relationship, making enumeration attacks infeasible. Postgres supports `uuid` as a native column type and Prisma generates values automatically via `@default(uuid())` — no application-level ID generation is required.
@@ -288,7 +304,7 @@ The transaction spec includes a `bypass_validation` flag. This field is intentio
 **What works today**
 
 - **Container-ready.** The app is fully Dockerised with a health check endpoint (`/health`) and `restart: unless-stopped`. It exposes a single port and has no startup state that would prevent running behind a load balancer or deploying to Cloud Run / GKE.
-- **Prisma connection pooling.** A single `PrismaClient` instance is created at startup and registered as a singleton in the DI container, so all requests share one connection pool. The default pool size is `(number of CPU cores × 2) + 1`. This is adequate for moderate load but should be tuned explicitly via the `connection_limit` query parameter in `DATABASE_URL` for production.
+  - **Prisma connection pooling.** A single `PrismaClient` instance is created at startup and registered as a singleton in the DI container, so all requests share one connection pool. The default pool size is `(number of CPU cores × 2) + 1`. This is adequate for moderate load but should be tuned explicitly via the `connection_limit` query parameter in `DATABASE_URL` for production.
 - **Structured business-context logging.** Pino emits JSON by default, which log aggregators (Datadog, GCP Logging, etc.) can ingest and index without additional parsing.
 
 **Known limitations to address before horizontal scaling**

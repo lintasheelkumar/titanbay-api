@@ -1,4 +1,3 @@
-import { describe, it, expect, jest } from '@jest/globals';
 import { FundService } from '@services/fund.service.js';
 import { IFundRepository } from '@db/repositories/interfaces/fund-repository.interface.js';
 import { FundNotFoundError, InfrastructureError, ValidationError } from '@errors/domain-errors.js';
