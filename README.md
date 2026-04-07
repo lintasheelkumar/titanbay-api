@@ -2,7 +2,7 @@
 
 RESTful API for managing private market funds, investors, and investments.
 
-> This project was built using [Claude](https://claude.ai) cloud context. Initial plans and architecture were designed with **Claude Opus 4.6**, and implementation was carried out using the **Claude Code VS Code extension** with **Claude Sonnet 4.6**. The original plans are available in [ai-context/](ai-context/).
+> This project was built using [Claude](https://claude.ai) models. Initial plans and architecture were designed with **Claude Opus 4.6**, and implementation was carried out using the **Claude Code VS Code extension** with **Claude Sonnet 4.6**. The original plans are available in [ai-context/](ai-context/).
 
 ## Quick Start
 
@@ -32,12 +32,12 @@ npm run dev
 | GET    | `/health` | Health check |
 | GET    | `/funds` | List all funds |
 | POST   | `/funds` | Create a fund |
-| PUT    | `/funds/:id` | Update a fund |
-| GET    | `/funds/:id` | Get a fund by id |
+| PUT    | `/fund/:id` | Update a fund |
+| GET    | `/fund/:id` | Get a fund by id |
 | GET    | `/investors` | List all investors |
 | POST   | `/investors` | Create an investor |
-| GET    | `/funds/:fund_id/investments` | List investments for a fund |
-| POST   | `/funds/:fund_id/investments` | Create an investment |
+| GET    | `/fund/:fund_id/investments` | List investments for a fund |
+| POST   | `/fund/:fund_id/investments` | Create an investment |
 
 ### Example: Create a Fund
 
@@ -313,7 +313,6 @@ The transaction spec includes a `bypass_validation` flag. This field is intentio
 
 - **In-process cache is not shared between replicas.** `node-cache` stores data in the Node.js process heap. If you run two instances, a write on instance A invalidates A's cache but B and C still serve stale data until the TTL expires (up to 5 minutes for lists). Before scaling horizontally, replace `NodeCacheService` with a shared external cache (e.g. Redis) that all instances read from and write to.
 - **No cache stampede protection.** When a hot cache entry expires, many concurrent requests will all miss simultaneously and hit the database in parallel. A Redis-based solution can use locking or probabilistic early expiry to avoid this.
-- **Shallow health check.** `GET /health` returns `{ status: "ok" }` based solely on the process being alive — it does not verify that the database is reachable. A load balancer routing traffic to an instance with a broken DB connection would see it as healthy. A deep check should attempt a lightweight Prisma query (e.g. `$queryRaw\`SELECT 1\``) and return 503 on failure.
 - **Single database instance.** The current setup has one Postgres node — a single point of failure and a write bottleneck. Production deployments should use a primary + read replica(s), with read-only queries (list, getById) routed to replicas.
 
 **Would also add before production**
