@@ -2,6 +2,8 @@
 
 RESTful API for managing private market funds, investors, and investments.
 
+> This project was built using [Claude](https://claude.ai) cloud context. Initial plans and architecture were designed with **Claude Opus 4.6**, and implementation was carried out using the **Claude Code VS Code extension** with **Claude Sonnet 4.6**. The original plans are available in [ai-context/](ai-context/).
+
 ## Quick Start
 
 ```bash
@@ -320,3 +322,10 @@ The transaction spec includes a `bypass_validation` flag. This field is intentio
 - API key or JWT authentication on all non-health endpoints
 - A request correlation ID (injected as `X-Request-Id` and attached to every log entry) to trace a single request across multiple log lines
 
+**Screenshots**
+
+![OpenApi docs](image.png)
+
+![Paginated response](image-1.png)
+
+![Validation error](image-2.png)
