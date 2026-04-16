@@ -11,9 +11,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('GET /funds', () => {
+describe('GET /fundss', () => {
   it('returns empty paginated response when no funds exist', async () => {
-    const res = await request(app).get('/funds');
+    const res = await request(app).get('/fundss');
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
     expect(res.body.total).toBe(0);
@@ -24,11 +24,11 @@ describe('GET /funds', () => {
 
   it('returns all funds after creation', async () => {
     // Insert via API so the service layer invalidates the list cache
-    await request(app).post('/fund').send({
+    await request(app).post('/funds').send({
       name: 'Seed Fund', vintage_year: 2023, target_size_usd: 50000000, status: 'Fundraising',
     });
 
-    const res = await request(app).get('/funds');
+    const res = await request(app).get('/fundss');
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].name).toBe('Seed Fund');
@@ -38,25 +38,25 @@ describe('GET /funds', () => {
   });
 
   it('respects page and limit query params', async () => {
-    const res = await request(app).get('/funds?page=1&limit=5');
+    const res = await request(app).get('/fundss?page=1&limit=5');
     expect(res.status).toBe(200);
     expect(res.body.page).toBe(1);
     expect(res.body.limit).toBe(5);
   });
 
   it('returns 400 for invalid pagination params', async () => {
-    const res = await request(app).get('/funds?page=0&limit=5');
+    const res = await request(app).get('/fundss?page=0&limit=5');
     expect(res.status).toBe(400);
   });
 });
 
-describe('POST /fund', () => {
+describe('POST /funds', () => {
   beforeEach(async () => {
     await resetDb();
   });
 
   it('creates a fund with valid data', async () => {
-    const res = await request(app).post('/fund').send({
+    const res = await request(app).post('/funds').send({
       name: 'Test Fund',
       vintage_year: 2024,
       target_size_usd: 100000000,
@@ -71,7 +71,7 @@ describe('POST /fund', () => {
   });
 
   it('defaults status to Fundraising when omitted', async () => {
-    const res = await request(app).post('/fund').send({
+    const res = await request(app).post('/funds').send({
       name: 'No Status Fund',
       vintage_year: 2024,
       target_size_usd: 10000000,
@@ -81,14 +81,14 @@ describe('POST /fund', () => {
   });
 
   it('returns 400 for missing required fields', async () => {
-    const res = await request(app).post('/fund').send({ name: 'Incomplete' });
+    const res = await request(app).post('/funds').send({ name: 'Incomplete' });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
     expect(res.body.error.details).toBeDefined();
   });
 
   it('returns 400 for invalid status enum', async () => {
-    const res = await request(app).post('/fund').send({
+    const res = await request(app).post('/funds').send({
       name: 'Bad Status Fund',
       vintage_year: 2024,
       target_size_usd: 10000000,
@@ -99,7 +99,7 @@ describe('POST /fund', () => {
   });
 
   it('returns 400 for negative target_size_usd', async () => {
-    const res = await request(app).post('/fund').send({
+    const res = await request(app).post('/funds').send({
       name: 'Negative Fund',
       vintage_year: 2024,
       target_size_usd: -1,
@@ -109,7 +109,7 @@ describe('POST /fund', () => {
   });
 });
 
-describe('GET /fund/:id', () => {
+describe('GET /funds/:id', () => {
   let fundId: string;
 
   beforeAll(async () => {
@@ -121,26 +121,26 @@ describe('GET /fund/:id', () => {
   });
 
   it('returns a fund by id', async () => {
-    const res = await request(app).get(`/fund/${fundId}`);
+    const res = await request(app).get(`/funds/${fundId}`);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(fundId);
     expect(res.body.name).toBe('Lookup Fund');
   });
 
   it('returns 404 for non-existent id', async () => {
-    const res = await request(app).get('/fund/00000000-0000-0000-0000-000000000000');
+    const res = await request(app).get('/funds/00000000-0000-0000-0000-000000000000');
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
   });
 
   it('returns 400 for invalid UUID format', async () => {
-    const res = await request(app).get('/fund/not-a-uuid');
+    const res = await request(app).get('/funds/not-a-uuid');
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
 
-describe('PUT /fund/:id', () => {
+describe('PUT /funds/:id', () => {
   let fundId: string;
 
   beforeEach(async () => {
@@ -152,7 +152,7 @@ describe('PUT /fund/:id', () => {
   });
 
   it('updates a fund with valid data', async () => {
-    const res = await request(app).put(`/fund/${fundId}`).send({
+    const res = await request(app).put(`/funds/${fundId}`).send({
       name: 'Updated Fund',
       vintage_year: 2023,
       target_size_usd: 40000000,
@@ -164,7 +164,7 @@ describe('PUT /fund/:id', () => {
   });
 
   it('returns 404 for non-existent fund id', async () => {
-    const res = await request(app).put('/fund/00000000-0000-0000-0000-000000000000').send({
+    const res = await request(app).put('/funds/00000000-0000-0000-0000-000000000000').send({
       name: 'Ghost Fund',
       vintage_year: 2024,
       target_size_usd: 10000000,
@@ -174,7 +174,7 @@ describe('PUT /fund/:id', () => {
   });
 
   it('returns 400 for invalid UUID in path', async () => {
-    const res = await request(app).put('/fund/not-a-uuid').send({
+    const res = await request(app).put('/funds/not-a-uuid').send({
       name: 'Bad ID Fund',
       vintage_year: 2024,
       target_size_usd: 10000000,
@@ -184,7 +184,7 @@ describe('PUT /fund/:id', () => {
   });
 
   it('returns 400 for missing required body fields', async () => {
-    const res = await request(app).put(`/fund/${fundId}`).send({ name: 'Incomplete' });
+    const res = await request(app).put(`/funds/${fundId}`).send({ name: 'Incomplete' });
     expect(res.status).toBe(400);
   });
 });

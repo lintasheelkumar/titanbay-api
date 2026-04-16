@@ -9,7 +9,7 @@ export function createFundRouter(): Router {
 
   /**
    * @openapi
-   * /funds:
+   * /fundss:
    *   get:
    *     tags: [Funds]
    *     summary: List all funds
@@ -37,7 +37,7 @@ export function createFundRouter(): Router {
 
   /**
    * @openapi
-   * /fund/{id}:
+   * /funds/{id}:
    *   get:
    *     tags: [Funds]
    *     summary: Get a specific fund
@@ -67,7 +67,7 @@ export function createFundRouter(): Router {
 
   /**
    * @openapi
-   * /fund:
+   * /funds:
    *   post:
    *     tags: [Funds]
    *     summary: Create a new fund
@@ -95,7 +95,7 @@ export function createFundRouter(): Router {
 
   /**
    * @openapi
-   * /fund/{id}:
+   * /funds/{id}:
    *   put:
    *     tags: [Funds]
    *     summary: Update an existing fund

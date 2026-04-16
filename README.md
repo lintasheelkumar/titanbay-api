@@ -32,12 +32,12 @@ npm run dev
 | GET    | `/health` | Health check |
 | GET    | `/funds` | List all funds |
 | POST   | `/funds` | Create a fund |
-| PUT    | `/fund/:id` | Update a fund |
-| GET    | `/fund/:id` | Get a fund by id |
+| PUT    | `/funds/:id` | Update a fund |
+| GET    | `/funds/:id` | Get a fund by id |
 | GET    | `/investors` | List all investors |
 | POST   | `/investors` | Create an investor |
-| GET    | `/fund/:fund_id/investments` | List investments for a fund |
-| POST   | `/fund/:fund_id/investments` | Create an investment |
+| GET    | `/funds/:fund_id/investments` | List investments for a fund |
+| POST   | `/funds/:fund_id/investments` | Create an investment |
 
 ### Example: Create a Fund
 
@@ -111,7 +111,7 @@ All endpoints can be tested directly from the Swagger UI — click "Try it out" 
 
 The OpenAPI spec is built automatically at startup using `swagger-jsdoc`. There are two parts:
 
-- **Endpoint definitions** — generated from `@openapi` JSDoc comments co-located with each route handler (e.g. `src/api/routes/fund.routes.ts`). Adding a new route and its JSDoc block is all that's needed for it to appear in the docs.
+- **Endpoint definitions** — generated from `@openapi` JSDoc comments co-located with each route handler (e.g. `src/api/routes/funds.routes.ts`). Adding a new route and its JSDoc block is all that's needed for it to appear in the docs.
 - **Shared schemas and parameters** — defined manually in `src/config/swagger.ts` (e.g. `Fund`, `Investor`, `ErrorResponse`, `PageParam`). These need to be updated when data models change.
 
 At build time, TypeScript compiles routes to `./dist/api/routes/*.js`. At startup, `swagger-jsdoc` scans those files, extracts all `@openapi` blocks, and merges them with the shared components to produce the final spec.
@@ -217,7 +217,7 @@ Every incoming request is validated against a Zod schema *before* it reaches the
 The same schema object is the single source of truth for the TypeScript type:
 
 ```ts
-// src/api/schemas/fund.schema.ts
+// src/api/schemas/funds.schema.ts
 export const createFundSchema = z.object({
   name:             z.string().min(1).max(255),
   vintage_year:     z.number().int().min(1900).max(currentYear + 5),
@@ -242,7 +242,7 @@ Cache keys are namespaced by operation and parameters (e.g. `funds:list:page=1:l
 Prisma entity types (e.g. `Fund` from `@prisma/client`) contain database-native types that are unsafe to serialise directly: `Decimal` (Prisma's arbitrary-precision type for `NUMERIC` columns) does not serialise to a plain JSON number, and `Date` can serialise inconsistently. Each domain has a dedicated mapper that converts these types at the boundary:
 
 ```ts
-// src/api/dtos/fund.dto.ts
+// src/api/dtos/funds.dto.ts
 export function toFundResponse(fund: Fund): FundResponseDto {
   return {
     id:              fund.id,

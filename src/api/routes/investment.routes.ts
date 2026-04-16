@@ -9,7 +9,7 @@ export function createInvestmentRouter(): Router {
 
   /**
    * @openapi
-   * /fund/{fund_id}/investments:
+   * /funds/{fund_id}/investments:
    *   get:
    *     tags: [Investments]
    *     summary: List all investments for a fund
@@ -49,7 +49,7 @@ export function createInvestmentRouter(): Router {
 
   /**
    * @openapi
-   * /fund/{fund_id}/investments:
+   * /funds/{fund_id}/investments:
    *   post:
    *     tags: [Investments]
    *     summary: Create a new investment
